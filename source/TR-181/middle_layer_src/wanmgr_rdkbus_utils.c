@@ -1080,6 +1080,8 @@ ANSC_STATUS WanMgr_GetSelectedIPMode(DML_VIRTUAL_IFACE * pVirtIf)
     // ModeForceEnable set to true on changing the IP.Mode data model.
     // IP.Mode will have precedence over Preferred Mode when ModeForceEnable is set to true.
     // ModeForceEnable is reset to false only on Factory Reset.
+#ifndef GLOBAL_SDK
+    // Use default value of pVirtIf for GLOBAL_SDK
     if(pVirtIf->IP.ModeForceEnable == FALSE)
     {
         if(CCSP_SUCCESS == WanMgr_RdkBus_GetParamValuesFromDB("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.IPModeEnable",param_value,sizeof(param_value)))
@@ -1096,6 +1098,7 @@ ANSC_STATUS WanMgr_GetSelectedIPMode(DML_VIRTUAL_IFACE * pVirtIf)
             return ANSC_STATUS_FAILURE;
         }
     }
+#endif
     CcspTraceInfo(("%s %d - IP SelectedMode=[%d] IP ModeForceEnable=[%d]\n", __FUNCTION__, __LINE__, pVirtIf->IP.SelectedMode, pVirtIf->IP.ModeForceEnable));
     return ANSC_STATUS_SUCCESS;
 }

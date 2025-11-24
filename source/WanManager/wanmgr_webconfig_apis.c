@@ -595,6 +595,7 @@ ANSC_STATUS WanMgrDmlWanDataSet(const void *pData, size_t len)
 */
 static unsigned int getWanDataBlobVersion(char *pSubDoc)
 {
+#ifndef GLOBAL_SDK
     char  subdoc_ver[BUFFER_LENGTH_64] = {0},
           buf[BUFFER_LENGTH_64]        = {0};
     int retval;
@@ -610,7 +611,7 @@ static unsigned int getWanDataBlobVersion(char *pSubDoc)
     }
 
     CcspTraceInfo(("%s Failed to get wan manager Data %s blob version\n",__FUNCTION__, pSubDoc));
-
+#endif
     return 0;
 }
 
