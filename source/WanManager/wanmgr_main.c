@@ -90,7 +90,8 @@ static void waitUntilSystemReady()
     int wait_time = 0;
 
     CcspTraceInfo(("%s %d Entered \n", __FUNCTION__, __LINE__));
-#ifdef RBUS_BUILD_FLAG_ENABLE
+#ifndef GLOBAL_PLATFORM
+#ifdef RBUS_BUILD_FLAG_ENABLE 
     WanMgr_Rbus_SubscribeWanReady();
 
     while(wait_time <= 180)
@@ -105,6 +106,7 @@ static void waitUntilSystemReady()
     CcspTraceInfo(("%s %d wan_ready_to_go event recerived. \n", __FUNCTION__, __LINE__));
 #else
     CcspTraceInfo(("%s %d rbus not enabled. Continuing. \n", __FUNCTION__, __LINE__));
+#endif
 #endif
     return;
 }
@@ -136,9 +138,10 @@ int  cmd_dispatch(int  command)
                         COMPONENT_PATH_WANMANAGER
                     );
             }
-
+#ifndef GLOBAL_PLATFORM
             ssp_create();
             ssp_engage();
+#endif
 
             break;
 
@@ -283,11 +286,13 @@ int main(int argc, char* argv[])
     DmErr_t    err;
 
     CcspTraceInfo(("NonRoot feature is enabled, dropping root privileges for RdkWanManager Process\n"));
+#ifndef GLOBAL_PLATFORM
     init_capability();
     drop_root_caps(&appcaps);
     update_process_caps(&appcaps);
     read_capability(&appcaps);
     clear_caps(&appcaps); 
+#endif
 
     for (idx = 1; idx < argc; idx++)
     {
@@ -347,6 +352,10 @@ int main(int argc, char* argv[])
 #endif //INCLUDE_BREAKPAD
 
     cmd_dispatch('e');
+#ifdef GLOBAL_PLATFORM
+    CcspTraceInfo(("Calling WanMgr_WanConfigInit from main ...\n"));
+    WanMgr_WanConfigInit();
+#endif
 #ifdef _COSA_SIM_
     subSys = "";        /* PC simu use empty string as subsystem */
 #else

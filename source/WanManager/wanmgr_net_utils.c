@@ -44,7 +44,10 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <sys/socket.h>
-
+#ifdef GLOBAL_PLATFORM
+#include <linux/if.h>
+#include <linux/rtnetlink.h>
+#endif
 #if defined(FEATURE_464XLAT)
 #include <netinet/icmp6.h>
 #include <sys/socket.h>
@@ -139,6 +142,165 @@ static BOOL IsZeroIpvxAddress(uint32_t ipvx, const char *addr);
 static int ParsePrefixAddress(const char *prefixAddr, char *address, uint32_t *plen);
 
 static int WanManager_CalculatePsidAndV4Index(char *pdIPv6Prefix, int v6PrefixLen, int iapdPrefixLen, int v4PrefixLen, int *psidValue, int *ipv4IndexValue, int *psidLen);
+
+#ifdef GLOBAL_PLATFORM
+#define DSL_L2_INTERFACE "ptm0" 
+#define WAN_INTERFACE "wan0"
+#define VLAN_ID "101"
+// For maniaging phy status
+extern INT WanMgr_StartInteraceMonitor();
+static void handle_link(struct nlmsghdr *nh);
+static void* ThreadWanMgr_MonitorInterface(void *arg);
+int WanManager_StartUDHCPCProcess(DML_VIRTUAL_IFACE* p_VirtIf, int *pid);
+int WanManager_StopUDHCPCProcess(const char* const iFaceName);
+
+void handle_link(struct nlmsghdr *nh)
+{
+    static bool last_link_status = TRUE;
+    struct ifinfomsg *ifi = NLMSG_DATA(nh);
+    int iface_index = ifi->ifi_index;
+    unsigned int flags = ifi->ifi_flags;
+    bool current_link_status = FALSE;
+    UINT uiTotalIfaces = 0;
+    UINT uiLoopCount = 0;
+
+    // Extract interface name
+    char ifname[IF_NAMESIZE] = {0};
+    if_indextoname(iface_index, ifname);
+
+    if (ifname[0] == '\0')
+        return;  // unknown interface
+
+    current_link_status = (flags & IFF_RUNNING) != 0;
+
+    if (current_link_status && !last_link_status) 
+    {
+        CcspTraceInfo(("%s-%d: link up detected for %s \n", __FUNCTION__, __LINE__,ifname));       
+        // phy status became up
+        if(strcmp(ifname, DSL_L2_INTERFACE) == 0 || strcmp(ifname, WAN_INTERFACE) == 0)
+        {
+            CcspTraceInfo(("%s-%d: WAN link is UP \n", __FUNCTION__, __LINE__));
+            uiTotalIfaces = WanMgr_IfaceData_GetTotalWanIface();
+            for( uiLoopCount = 0; uiLoopCount < uiTotalIfaces; uiLoopCount++ )
+            {
+                WanMgr_Iface_Data_t*   pWanDmlIfaceData = WanMgr_GetIfaceData_locked(uiLoopCount);
+                DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
+                CcspTraceInfo(("%s-%d: wanmanager ifname = %s \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
+                if(strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)
+                {
+                    CcspTraceInfo(("%s-%d: Setting WAN_IFACE_PHY_STATUS_UP for %s. \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
+                    v_secure_system("ip link add name %s link %s type vlan id %s", WAN_INTERFACE, DSL_L2_INTERFACE, VLAN_ID );                    
+                    CcspTraceInfo(("%s-%d: Recreated WAN link %s. Restarting firewall\n", __FUNCTION__, __LINE__, WAN_INTERFACE));       
+                    system("systemctl stop firewall;systemctl start firewall");       
+                    DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
+                    pWanIfaceData->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_UP;
+                    WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
+                    break;
+                }
+                WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
+            }
+        }
+        last_link_status = current_link_status;
+    }
+    else if (!current_link_status && last_link_status)
+    {
+        CcspTraceInfo(("%s-%d: link down detected. \n", __FUNCTION__, __LINE__,ifname));       
+        // phy status became down    
+        if(strcmp(ifname, DSL_L2_INTERFACE) == 0)
+        {
+            CcspTraceInfo(("%s-%d: WAN link Down. \n", __FUNCTION__, __LINE__));       
+            uiTotalIfaces = WanMgr_IfaceData_GetTotalWanIface();
+            for( uiLoopCount = 0; uiLoopCount < uiTotalIfaces; uiLoopCount++ )
+            {
+                WanMgr_Iface_Data_t*   pWanDmlIfaceData = WanMgr_GetIfaceData_locked(uiLoopCount);
+                DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
+                CcspTraceInfo(("%s-%d: wanmanager ifname = %s \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
+                if(strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)
+                {
+                    CcspTraceInfo(("%s-%d: Setting WAN_IFACE_PHY_STATUS_DOWN for dsl0. \n", __FUNCTION__, __LINE__));       
+                    DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
+                    pWanIfaceData->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_DOWN;
+                    WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
+                    break;
+                }
+                WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
+            }
+        }
+        last_link_status = current_link_status;
+    }
+    return; 
+}
+
+void* ThreadWanMgr_MonitorInterface(void *arg)
+{
+    UINT counter = 0;
+    UINT  *puIndex = NULL;
+    INT ipstatus = 0;
+    DML_WAN_IFACE* pFixedInterface = NULL;
+    char buffer[4098];
+
+    pthread_detach(pthread_self());
+
+    int sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+    struct sockaddr_nl addr = { 0 };
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = RTMGRP_LINK;  // link events (carrier up/down)
+
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) 
+    {
+        CcspTraceInfo(("%s-%d: Netlink socket bind failed \n", __FUNCTION__, __LINE__));
+        close(sock);
+        return NULL;
+    }
+    CcspTraceInfo(("%s-%d: Listening socket for link status \n", __FUNCTION__, __LINE__));
+
+    while (1) 
+    {
+        memset(buffer, 0, sizeof(buffer));
+        int len = recv(sock, buffer, sizeof(buffer), 0);
+        if (len < 0)
+            continue;
+
+        struct nlmsghdr *nh = (struct nlmsghdr *)buffer;
+
+        for (; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
+            switch (nh->nlmsg_type) {
+
+            case RTM_NEWLINK:
+            case RTM_DELLINK:
+                handle_link(nh);
+                break;
+
+            case RTM_NEWADDR:
+            case RTM_DELADDR:
+                break;
+
+            case RTM_NEWROUTE:
+            case RTM_DELROUTE:
+                break;
+
+            default:
+                break;
+            }
+        }
+    }
+
+    close(sock);
+    return 0;
+}
+
+INT WanMgr_StartInteraceMonitor()
+{
+    INT  iErrorCode     = 0;
+    pthread_t interfaceMonitorThreadId;
+
+    iErrorCode = pthread_create( &interfaceMonitorThreadId, NULL, &ThreadWanMgr_MonitorInterface, NULL );
+
+    CcspTraceInfo(("%s-%d: ThreadWanMgr_MonitorInterface created ... \n", __FUNCTION__, __LINE__));
+    return iErrorCode;
+}
+#endif
 
 #if defined(FEATURE_464XLAT)
 #define XLAT_INTERFACE "xlat"
@@ -488,7 +650,22 @@ int WanManager_StartDhcpv6Client(DML_VIRTUAL_IFACE* pVirtIf, IFACE_TYPE IfaceTyp
         CcspTraceError(("%s %d: Invalid args \n", __FUNCTION__, __LINE__));
         return 0;
     }
-
+#ifdef GLOBAL_PLATFORM
+    CcspTraceInfo(("%s %d: Global SDK: Running dhcpcd to get IPV6\n", __FUNCTION__, __LINE__));
+    if(WanManager_StartDHCPCDProcess(pVirtIf) == RETURN_OK)
+    {
+        pVirtIf->IP.Dhcp6cStatus = DHCPC_STARTED;
+        pVirtIf->IP.Dhcp6cPid = 1;
+        // A seperate implementation is required to send events from dhcpcd hooks to wan manager
+        WanManager_UpdateInterfaceStatus(pVirtIf, WANMGR_IFACE_CONNECTION_IPV6_UP);
+    }
+    else
+    {
+        pVirtIf->IP.Dhcp6cStatus = DHCPC_FAILED;
+        CcspTraceInfo(("%s %d - Failed setting [%s] to DHCP Manager \n", __FUNCTION__, __LINE__, pVirtIf->Name));
+    }
+    return 0;
+#endif
     // Send RS(Solicited) request when IPv6 source as SLAAC to comply RA(Solicited) response
     if ( DML_WAN_IP_SOURCE_SLAAC == pVirtIf->IP.IPv6Source )
     {
@@ -574,6 +751,13 @@ ANSC_STATUS WanManager_StopDhcpv6Client(DML_VIRTUAL_IFACE* pVirtIf, DHCP_RELEASE
 
     CcspTraceInfo (("%s %d: Stopping dhcpv6 client for %s %s\n", __FUNCTION__, __LINE__, pVirtIf->Name, (is_release_required==STOP_DHCP_WITH_RELEASE)? "With release": "."));
 
+#ifdef GLOBAL_PLATFORM
+    CcspTraceInfo(("%s %d: Global SDK: Stopping dhcpcd to get IPV6\n", __FUNCTION__, __LINE__));
+    WanManager_StopDHCPCDProcess(pVirtIf->Name);
+    pVirtIf->IP.Dhcp6cStatus = DHCPC_STOPPED;
+    pVirtIf->IP.Dhcp6cPid = 0;
+    return 0;
+#endif
 #if  defined( FEATURE_RDKB_DHCP_MANAGER )
     char dmlName[256] = {0};
     snprintf( dmlName, sizeof(dmlName), "%s.Enable", pVirtIf->IP.DHCPv6Iface );
@@ -621,6 +805,24 @@ int WanManager_StartDhcpv4Client(DML_VIRTUAL_IFACE* pVirtIf, char* baseInterface
         CcspTraceError(("%s %d: Invalid args \n", __FUNCTION__, __LINE__));
         return 0;
     }
+#if defined(GLOBAL_PLATFORM)
+    int udhcp_pid = 0;
+    CcspTraceInfo(("%s %d: Global SDK : Starting udhcpc to get IPV4\n", __FUNCTION__, __LINE__));
+    if(WanManager_StartUDHCPCProcess(pVirtIf, &udhcp_pid) == RETURN_OK)
+    {
+        pVirtIf->IP.Dhcp4cStatus = DHCPC_STARTED;
+        pVirtIf->IP.Dhcp4cPid = udhcp_pid;
+        CcspTraceInfo(("%s %d - Started udhcpc on interface %s, dhcpv4_pid %d \n", __FUNCTION__, __LINE__, pVirtIf->Name, pVirtIf->IP.Dhcp4cPid));
+    }
+    else
+    {
+        CcspTraceError(("%s %d:  failed to start udhcpc. Returing pid -1.\n", __FUNCTION__, __LINE__));
+        pVirtIf->IP.Dhcp4cPid = -1;
+        pVirtIf->IP.Dhcp4cStatus = DHCPC_FAILED;
+        return -1;
+    }
+    return 0;
+#endif
 #if  defined( FEATURE_RDKB_DHCP_MANAGER )
     char dmlName[256] = {0};
     WanMgr_SubscribeDhcpClientEvents(pVirtIf->IP.DHCPv4Iface);
@@ -680,6 +882,16 @@ ANSC_STATUS WanManager_StopDhcpv4Client(DML_VIRTUAL_IFACE* pVirtIf, DHCP_RELEASE
         return 0;
     }
     CcspTraceInfo (("%s %d: Stopping dhcpv4 client for %s %s\n", __FUNCTION__, __LINE__, pVirtIf->Name, (IsReleaseNeeded==STOP_DHCP_WITH_RELEASE)? "With release": "."));
+#if defined(GLOBAL_PLATFORM)
+    CcspTraceInfo(("%s %d: Global SDK : Stopping udhcpc to release IPV4\n", __FUNCTION__, __LINE__));
+    if(WanManager_StopUDHCPCProcess(pVirtIf->Name) == RETURN_OK)
+    {
+        pVirtIf->IP.Dhcp4cStatus = DHCPC_STOPPED;
+        pVirtIf->IP.Dhcp4cPid = 0;
+        CcspTraceInfo(("%s %d - Stopped dhcpc on interface %s, dhcpv4_pid %d \n", __FUNCTION__, __LINE__, pVirtIf->Name, pVirtIf->IP.Dhcp4cPid));
+    }
+    return ANSC_STATUS_SUCCESS;
+#endif
 #if  defined( FEATURE_RDKB_DHCP_MANAGER )
     char dmlName[256] = {0};
     snprintf( dmlName, sizeof(dmlName), "%s.Enable", pVirtIf->IP.DHCPv4Iface );

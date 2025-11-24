@@ -137,7 +137,7 @@ ANSC_STATUS WanMgr_FailOverCtrlInit(WanMgr_FailOver_Controller_t* pFailOverContr
             WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
         }
     }
-
+#ifndef GLOBAL_PLATFORM
     //Read Failover type from PSM
     char param_value[256] = {0};
     int retPsmGet = WanMgr_RdkBus_GetParamValuesFromDB(PSM_WANMANAGER_FAILOVER_TYPE, param_value,sizeof(param_value));
@@ -145,6 +145,7 @@ ANSC_STATUS WanMgr_FailOverCtrlInit(WanMgr_FailOver_Controller_t* pFailOverContr
     {
         _ansc_sscanf(param_value, "%d", &(pFailOverController->FailOverType));
     }
+#endif
 
     return ANSC_STATUS_SUCCESS;
 }
@@ -1011,7 +1012,7 @@ ANSC_STATUS WanMgr_FailOverThread (void)
 
         WanMgr_UpdateFOControllerData(&FWController);
         WanMgr_FO_IfaceGroupMonitor();
-#if defined(FEATURE_RDKB_LED_MANAGER)
+#if defined(FEATURE_RDKB_LED_MANAGER) && !defined (GLOBAL_PLATFORM)
         UpdateLedStatus(&FWController);
 #endif
         WanMgr_TelemetryEventTrigger(&FWController);

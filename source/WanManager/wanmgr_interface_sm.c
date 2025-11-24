@@ -994,7 +994,7 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
     int i;
     char IfaceName[BUFLEN_16] = {0};
     int BridgeMode = 0;
-
+#ifndef GLOBAL_PLATFORM
     { //TODO : temporary debug code to identify the bridgemode sysevent failure issue.
         char Output[BUFLEN_16] = {0};
         if (sysevent_get(sysevent_fd, sysevent_token, "bridge_mode", Output, sizeof(Output)) !=0)
@@ -1004,6 +1004,7 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
         BridgeMode = atoi(Output);
         CcspTraceInfo(("%s-%d: <<DEBUG>> bridge_mode sysevent value set to =%d \n", __FUNCTION__, __LINE__,  BridgeMode));
     }
+#endif
      /*TODO:
      *Below Code should be removed once V6 Prefix/IP is assigned on erouter0 Instead of brlan0 for sky Devices.
      */
@@ -1074,7 +1075,29 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
         WanManager_send_and_receive_rs(p_VirtIf);
         return -1;
     }
-
+#ifdef GLOBAL_PLATFORM
+CcspTraceInfo(("%s %d Checking if global IPV6 address is configured on  %s \n", __FUNCTION__, __LINE__,IfaceName));
+//Check if LAN interface has global ipv6 address
+    FILE *fp_global = NULL;
+    int global_address = 0;
+    if ((fp_global = v_secure_popen("r","ip -6 addr show dev %s scope global dynamic | grep inet6", IfaceName)))
+    {
+        if(fp_global != NULL) 
+        {
+            fgets(buffer, BUFLEN_256, fp_global);
+            if(strlen(buffer) > 0 ) {
+                global_address = 1;
+                CcspTraceInfo(("%s %d Global IPV6 Address Present on %s \n", __FUNCTION__, __LINE__,IfaceName));
+            }
+            pclose(fp_global);
+        }
+    }
+    if(global_address == 0)
+    {
+        CcspTraceError(("%s %d Failed to get global IPV6 Address on %s \n", __FUNCTION__, __LINE__,IfaceName));
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -2544,6 +2567,18 @@ static eWanState_t wan_transition_ipv6_up(WanMgr_IfaceSM_Controller_t* pWanIface
     WanMgr_SendMsgTo_ConnectivityCheck(pWanIfaceCtrl, CONNECTION_MSG_IPV6 , TRUE);
 
     Update_Interface_Status();
+#ifdef GLOBAL_PLATFORM
+    /* This state is called because ipv6 global address and route are already checked through "checkIpv6LanAddressIsReadyToUse" */
+    if( p_VirtIf->IP.Ipv4Status == WAN_IFACE_IPV4_STATE_UP)
+    {
+        CcspTraceInfo(("%s %d - Setting WAN_STATE_DUAL_STACK_ACTIVE \n", __FUNCTION__, __LINE__));
+        return WAN_STATE_DUAL_STACK_ACTIVE;
+    }
+    else
+    {
+        CcspTraceError(("%s %d - Dual Stack is not UP \n", __FUNCTION__, __LINE__));
+    }
+#endif
     sysevent_get(sysevent_fd, sysevent_token, SYSEVENT_WAN_SERVICE_STATUS, buf, sizeof(buf));
     //TODO: Firewall IPv6 FORWARD rules are not working if SYSEVENT_WAN_SERVICE_STATUS is set for REMOTE_IFACE. Modify firewall similar for backup interface similar to primary.
     if (strcmp(buf, WAN_STATUS_STARTED) && pInterface->IfaceType != REMOTE_IFACE)
@@ -3507,6 +3542,9 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
 
     // Start DHCP apps if not started
     WanMgr_MonitorDhcpApps(pWanIfaceCtrl);
+#ifdef GLOBAL_PLATFORM
+    pInterface->Selection.Status = WAN_IFACE_ACTIVE;
+#endif
 
     if ((p_VirtIf->VLAN.Enable == TRUE &&  p_VirtIf->VLAN.Status ==  WAN_IFACE_LINKSTATUS_DOWN) ||
              (p_VirtIf->PPP.Enable == TRUE && p_VirtIf->PPP.LinkStatus != WAN_IFACE_PPP_LINK_STATUS_UP)|| // PPP is Enabled but DOWN

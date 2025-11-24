@@ -61,11 +61,86 @@ extern ANSC_HANDLE bus_handle;
 int get_Wan_Interface_ParametersFromPSM(ULONG instancenum, DML_WAN_IFACE* p_Interface)
 {
     int retPsmGet = CCSP_SUCCESS;
-    char param_value[256];
+ 	char param_value[256];
     char param_name[512];
     CcspTraceInfo(("%s %d Update Wan Virtual iface Conf from PSM \n", __FUNCTION__, __LINE__));
 
     p_Interface->uiInstanceNumber = instancenum;
+
+#ifdef GLOBAL_PLATFORM
+        /*
+        dmsb.wanmanager.if.1.Selection.Enable
+        dmsb.wanmanager.if.2.Selection.Enable
+        idmsb.wanmanager.if.3.Selection.Enable
+
+        dmsb.wanmanager.if.1.Selection.ActiveLink
+        dmsb.wanmanager.if.2.Selection.ActiveLink
+        dmsb.wanmanager.if.3.Selection.ActiveLink
+
+        dmsb.wanmanager.if.1.Type
+        dmsb.wanmanager.if.2.Type
+        dmsb.wanmanager.if.3.Type
+
+        dmsb.wanmanager.if.1.Priority
+        dmsb.wanmanager.if.2.Priority
+        dmsb.wanmanager.if.3.Priority
+
+        dmsb.wanmanager.if.1.VirtualInterfaceifcount
+        dmsb.wanmanager.if.2.VirtualInterfaceifcount
+        dmsb.wanmanager.if.3.VirtualInterfaceifcount
+
+        dmsb.wanmanager.if.1.RebootOnConfiguration
+        dmsb.wanmanager.if.2.RebootOnConfiguration
+        dmsb.wanmanager.if.3.RebootOnConfiguration
+
+        */
+
+        if(instancenum == 1)
+        {
+            p_Interface->Selection.Enable = TRUE;
+            p_Interface->Selection.ActiveLink = TRUE;
+            AnscCopyString(p_Interface->Name, "dsl0");
+            AnscCopyString(p_Interface->DisplayName, "DSL");
+            AnscCopyString(p_Interface->AliasName, "DSL");
+            p_Interface->Type = 2;
+            p_Interface->Selection.Priority = 1;
+            p_Interface->Selection.Timeout = 45;
+            p_Interface->Selection.Group = 1;
+            p_Interface->NoOfVirtIfs = 1;
+            p_Interface->Selection.RequiresReboot = FALSE;
+            // wan0 is already up during boot
+            p_Interface->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_UP;
+        }
+        if(instancenum == 2)
+        {
+            p_Interface->Selection.Enable = TRUE;
+            p_Interface->Selection.ActiveLink = FALSE;
+            AnscCopyString(p_Interface->Name, "eth0");
+            AnscCopyString(p_Interface->DisplayName, "WANOE");
+            AnscCopyString(p_Interface->AliasName, "WANOE");
+            p_Interface->Type = 3;
+            p_Interface->Selection.Priority = 0;
+            p_Interface->Selection.Timeout = 20;
+            p_Interface->Selection.Group = 1;
+            p_Interface->NoOfVirtIfs = 1;
+            p_Interface->Selection.RequiresReboot = FALSE;
+        }
+        if(instancenum == 3)
+        {
+            p_Interface->Selection.Enable = TRUE;
+            p_Interface->Selection.ActiveLink = FALSE;
+            AnscCopyString(p_Interface->DisplayName, "ADSL");
+            AnscCopyString(p_Interface->AliasName, "ADSL");
+            p_Interface->Type = 3;
+            p_Interface->Selection.Priority = 0;
+            p_Interface->Selection.Timeout = 45;
+            p_Interface->Selection.Group = 1;
+            p_Interface->NoOfVirtIfs = 1;
+            p_Interface->Selection.RequiresReboot = FALSE;
+        }
+
+    return retPsmGet;
+#endif
 
     _ansc_memset(param_name, 0, sizeof(param_name));
     _ansc_memset(param_value, 0, sizeof(param_value));
@@ -231,6 +306,51 @@ int get_Virtual_Interface_FromPSM(ULONG instancenum, ULONG virtInsNum ,DML_VIRTU
     char param_value[256];
     char param_name[512];
     CcspTraceInfo(("%s %d Update Wan Virtual iface Conf from PSM \n", __FUNCTION__, __LINE__));
+
+#ifdef GLOBAL_PLATFORM
+    pVirtIf->EnableMAPT = FALSE;
+    pVirtIf->EnableDSLite = FALSE;
+    pVirtIf->PPP.Enable = FALSE;
+    
+    /*
+     There are 3 interfaces and each has 1 virtual interface
+    dmsb.wanmanager.if.1.VirtualInterface.1.Enable
+    dmsb.wanmanager.if.2.VirtualInterface.1.Enable
+    dmsb.wanmanager.if.3.VirtualInterface.1.Enable
+
+    dmsb.wanmanager.if.1.VirtualInterface.1.Name
+    dmsb.wanmanager.if.2.VirtualInterface.1.Name
+    dmsb.wanmanager.if.3.VirtualInterface.1.Name
+
+    dmsb.wanmanager.if.1.VirtualInterface.1.Alias
+    dmsb.wanmanager.if.2.VirtualInterface.1.Alias
+    dmsb.wanmanager.if.3.VirtualInterface.1.Alias
+    */
+
+    if(instancenum == 1 && (virtInsNum + 1) == 1)
+    {
+        pVirtIf->Enable = TRUE;
+        AnscCopyString(pVirtIf->Name, "wan0");
+        AnscCopyString(pVirtIf->Alias, "VDSL_1");
+        pVirtIf->VLAN.NoOfInterfaceEntries = 1;
+    }
+    if(instancenum == 2 && (virtInsNum + 1) == 1)
+    {
+        pVirtIf->Enable = TRUE;
+        AnscCopyString(pVirtIf->Name, "erouter0");
+        AnscCopyString(pVirtIf->Alias, "WANOE_1");
+        pVirtIf->VLAN.NoOfInterfaceEntries = 1;
+    }
+    if(instancenum == 3 && (virtInsNum + 1) == 1)
+    {
+        pVirtIf->Enable = TRUE;
+        AnscCopyString(pVirtIf->Name, "pppoa0");
+        AnscCopyString(pVirtIf->Alias, "ADSL_1");
+        pVirtIf->VLAN.NoOfInterfaceEntries = 0;
+    }
+
+    return 0;
+#endif
 
     _ansc_memset(param_name, 0, sizeof(param_name));
     _ansc_memset(param_value, 0, sizeof(param_value));
@@ -1574,6 +1694,11 @@ ANSC_STATUS DmlGetTotalNoOfWanInterfaces(int *wan_if_count)
     int retPsmGet = CCSP_SUCCESS;
     char param_value[64] = {0};
 
+#ifdef GLOBAL_PLATFORM
+    *wan_if_count = NUMBER_OF_WAN_INTERFACES;
+    CcspTraceInfo(("%s %d - DmlGetTotalNoOfWanInterfaces=%d.\n", __FUNCTION__, __LINE__,*wan_if_count));
+    return ANSC_STATUS_SUCCESS;
+#endif
     retPsmGet = WanMgr_RdkBus_GetParamValuesFromDB(PSM_WANMANAGER_WANIFCOUNT,param_value,sizeof(param_value));
     if (retPsmGet != CCSP_SUCCESS) { \
         AnscTraceFlow(("%s Error %d reading %s\n", __FUNCTION__, retPsmGet, PSM_WANMANAGER_WANIFCOUNT));
@@ -1623,6 +1748,11 @@ ANSC_STATUS WanMgr_WanConfInit (DML_WANMGR_CONFIG* pWanConfig)
 
     CcspTraceInfo(("%s %d Initialize WanConf \n", __FUNCTION__, __LINE__));
 
+#ifdef GLOBAL_PLATFORM
+    pWanConfig->Enable = TRUE;
+    CcspTraceInfo(("%s %d Setting wan enable TRUE and returning \n", __FUNCTION__, __LINE__));
+    return ANSC_STATUS_SUCCESS;
+#endif
     memset(param_name, 0, sizeof(param_name));
     memset(param_value, 0, sizeof(param_value));
     _ansc_sprintf(param_name, PSM_WANMANAGER_WANENABLE);
