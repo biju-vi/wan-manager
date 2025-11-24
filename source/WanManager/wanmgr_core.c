@@ -35,7 +35,7 @@ ANSC_STATUS WanMgr_Core_Init(void)
 {
     ANSC_STATUS retStatus = ANSC_STATUS_FAILURE;
 
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
     //Initialise system messages
     retStatus = WanMgr_SysEvents_Init();
     if(retStatus != ANSC_STATUS_SUCCESS)
@@ -64,7 +64,7 @@ ANSC_STATUS WanMgr_Core_Init(void)
 ANSC_STATUS WanMgr_Core_Start(void)
 {
     ANSC_STATUS retStatus = ANSC_STATUS_SUCCESS;
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
 #ifdef RBUS_BUILD_FLAG_ENABLE
     WanMgr_Rbus_UpdateLocalWanDb();
     WanMgr_Rbus_SubscribeDML();
@@ -77,7 +77,7 @@ ANSC_STATUS WanMgr_Core_Start(void)
 #endif /* * FEATURE_802_1P_COS_MARKING */
     //Initialise Policy State Machine
 #endif
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     WanMgr_StartInteraceMonitor(); 
 #endif
     WanController_Init_StateMachine();

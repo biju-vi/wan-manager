@@ -994,7 +994,7 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
     int i;
     char IfaceName[BUFLEN_16] = {0};
     int BridgeMode = 0;
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
     { //TODO : temporary debug code to identify the bridgemode sysevent failure issue.
         char Output[BUFLEN_16] = {0};
         if (sysevent_get(sysevent_fd, sysevent_token, "bridge_mode", Output, sizeof(Output)) !=0)
@@ -1075,7 +1075,7 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
         WanManager_send_and_receive_rs(p_VirtIf);
         return -1;
     }
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
 CcspTraceInfo(("%s %d Checking if global IPV6 address is configured on  %s \n", __FUNCTION__, __LINE__,IfaceName));
 //Check if LAN interface has global ipv6 address
     FILE *fp_global = NULL;
@@ -2567,7 +2567,7 @@ static eWanState_t wan_transition_ipv6_up(WanMgr_IfaceSM_Controller_t* pWanIface
     WanMgr_SendMsgTo_ConnectivityCheck(pWanIfaceCtrl, CONNECTION_MSG_IPV6 , TRUE);
 
     Update_Interface_Status();
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     /* This state is called because ipv6 global address and route are already checked through "checkIpv6LanAddressIsReadyToUse" */
     if( p_VirtIf->IP.Ipv4Status == WAN_IFACE_IPV4_STATE_UP)
     {
@@ -3542,7 +3542,7 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
 
     // Start DHCP apps if not started
     WanMgr_MonitorDhcpApps(pWanIfaceCtrl);
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     pInterface->Selection.Status = WAN_IFACE_ACTIVE;
 #endif
 

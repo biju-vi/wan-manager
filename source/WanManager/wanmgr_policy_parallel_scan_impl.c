@@ -369,7 +369,7 @@ static WcPsPolicyState_t Transition_SelectingInterface (WanMgr_Policy_Controller
                 {
                     pWanIfaceData->Selection.Status = WAN_IFACE_SELECTED;
                     pWanIfaceData->Selection.ActiveLink = TRUE;
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
                     DmlSetWanActiveLinkInPSMDB(uiLoopCount, TRUE);
 #endif
                 }else

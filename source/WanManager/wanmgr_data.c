@@ -148,10 +148,10 @@ ANSC_STATUS WanMgr_Group_Configure()
                 pWanIfacegroup->Group[i].ResetSelectedInterface = FALSE;
                 pWanIfacegroup->Group[i].InitialScanComplete = FALSE;
                 pWanIfacegroup->Group[i].Policy = AUTOWAN_MODE;
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
                 pWanIfacegroup->Group[i].Policy = PARALLEL_SCAN;
 #endif
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
                 WanMgr_Read_GroupConf_FromPSM(&(pWanIfacegroup->Group[i]), i);
 #endif
                 

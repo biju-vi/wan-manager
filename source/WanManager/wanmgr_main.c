@@ -90,7 +90,7 @@ static void waitUntilSystemReady()
     int wait_time = 0;
 
     CcspTraceInfo(("%s %d Entered \n", __FUNCTION__, __LINE__));
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
 #ifdef RBUS_BUILD_FLAG_ENABLE 
     WanMgr_Rbus_SubscribeWanReady();
 
@@ -138,7 +138,7 @@ int  cmd_dispatch(int  command)
                         COMPONENT_PATH_WANMANAGER
                     );
             }
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
             ssp_create();
             ssp_engage();
 #endif
@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
     DmErr_t    err;
 
     CcspTraceInfo(("NonRoot feature is enabled, dropping root privileges for RdkWanManager Process\n"));
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
     init_capability();
     drop_root_caps(&appcaps);
     update_process_caps(&appcaps);
@@ -352,7 +352,7 @@ int main(int argc, char* argv[])
 #endif //INCLUDE_BREAKPAD
 
     cmd_dispatch('e');
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     CcspTraceInfo(("Calling WanMgr_WanConfigInit from main ...\n"));
     WanMgr_WanConfigInit();
 #endif

@@ -183,7 +183,7 @@ ANSC_STATUS BackEndManagerInitialize(ANSC_HANDLE hThisObject)
     WanMgr_WanConfigInit();
 
 #ifdef RBUS_BUILD_FLAG_ENABLE
-#ifndef GLOBAL_PLATFORM
+#ifndef GLOBAL_SDK
     //Starts the Rbus Initialize
     if(WanMgr_Rbus_Init() != ANSC_STATUS_SUCCESS)
     {

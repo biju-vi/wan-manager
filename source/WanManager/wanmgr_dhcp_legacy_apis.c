@@ -37,7 +37,7 @@
 #include <unistd.h>
 #include "secure_wrapper.h"
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
 int WanManager_StartUDHCPCProcess(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
 {
     char pidFilePath[BUFLEN_32]  = {0};

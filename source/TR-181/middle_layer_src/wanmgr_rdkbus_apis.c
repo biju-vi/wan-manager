@@ -67,7 +67,7 @@ int get_Wan_Interface_ParametersFromPSM(ULONG instancenum, DML_WAN_IFACE* p_Inte
 
     p_Interface->uiInstanceNumber = instancenum;
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
         /*
         dmsb.wanmanager.if.1.Selection.Enable
         dmsb.wanmanager.if.2.Selection.Enable
@@ -307,7 +307,7 @@ int get_Virtual_Interface_FromPSM(ULONG instancenum, ULONG virtInsNum ,DML_VIRTU
     char param_name[512];
     CcspTraceInfo(("%s %d Update Wan Virtual iface Conf from PSM \n", __FUNCTION__, __LINE__));
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     pVirtIf->EnableMAPT = FALSE;
     pVirtIf->EnableDSLite = FALSE;
     pVirtIf->PPP.Enable = FALSE;
@@ -1694,7 +1694,7 @@ ANSC_STATUS DmlGetTotalNoOfWanInterfaces(int *wan_if_count)
     int retPsmGet = CCSP_SUCCESS;
     char param_value[64] = {0};
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     *wan_if_count = NUMBER_OF_WAN_INTERFACES;
     CcspTraceInfo(("%s %d - DmlGetTotalNoOfWanInterfaces=%d.\n", __FUNCTION__, __LINE__,*wan_if_count));
     return ANSC_STATUS_SUCCESS;
@@ -1748,7 +1748,7 @@ ANSC_STATUS WanMgr_WanConfInit (DML_WANMGR_CONFIG* pWanConfig)
 
     CcspTraceInfo(("%s %d Initialize WanConf \n", __FUNCTION__, __LINE__));
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     pWanConfig->Enable = TRUE;
     CcspTraceInfo(("%s %d Setting wan enable TRUE and returning \n", __FUNCTION__, __LINE__));
     return ANSC_STATUS_SUCCESS;

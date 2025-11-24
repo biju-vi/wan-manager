@@ -44,7 +44,7 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <sys/socket.h>
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
 #include <linux/if.h>
 #include <linux/rtnetlink.h>
 #endif
@@ -143,7 +143,7 @@ static int ParsePrefixAddress(const char *prefixAddr, char *address, uint32_t *p
 
 static int WanManager_CalculatePsidAndV4Index(char *pdIPv6Prefix, int v6PrefixLen, int iapdPrefixLen, int v4PrefixLen, int *psidValue, int *ipv4IndexValue, int *psidLen);
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
 #define DSL_L2_INTERFACE "ptm0" 
 #define WAN_INTERFACE "wan0"
 #define VLAN_ID "101"
@@ -650,7 +650,7 @@ int WanManager_StartDhcpv6Client(DML_VIRTUAL_IFACE* pVirtIf, IFACE_TYPE IfaceTyp
         CcspTraceError(("%s %d: Invalid args \n", __FUNCTION__, __LINE__));
         return 0;
     }
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     CcspTraceInfo(("%s %d: Global SDK: Running dhcpcd to get IPV6\n", __FUNCTION__, __LINE__));
     if(WanManager_StartDHCPCDProcess(pVirtIf) == RETURN_OK)
     {
@@ -751,7 +751,7 @@ ANSC_STATUS WanManager_StopDhcpv6Client(DML_VIRTUAL_IFACE* pVirtIf, DHCP_RELEASE
 
     CcspTraceInfo (("%s %d: Stopping dhcpv6 client for %s %s\n", __FUNCTION__, __LINE__, pVirtIf->Name, (is_release_required==STOP_DHCP_WITH_RELEASE)? "With release": "."));
 
-#ifdef GLOBAL_PLATFORM
+#ifdef GLOBAL_SDK
     CcspTraceInfo(("%s %d: Global SDK: Stopping dhcpcd to get IPV6\n", __FUNCTION__, __LINE__));
     WanManager_StopDHCPCDProcess(pVirtIf->Name);
     pVirtIf->IP.Dhcp6cStatus = DHCPC_STOPPED;
@@ -805,7 +805,7 @@ int WanManager_StartDhcpv4Client(DML_VIRTUAL_IFACE* pVirtIf, char* baseInterface
         CcspTraceError(("%s %d: Invalid args \n", __FUNCTION__, __LINE__));
         return 0;
     }
-#if defined(GLOBAL_PLATFORM)
+#if defined(GLOBAL_SDK)
     int udhcp_pid = 0;
     CcspTraceInfo(("%s %d: Global SDK : Starting udhcpc to get IPV4\n", __FUNCTION__, __LINE__));
     if(WanManager_StartUDHCPCProcess(pVirtIf, &udhcp_pid) == RETURN_OK)
@@ -882,7 +882,7 @@ ANSC_STATUS WanManager_StopDhcpv4Client(DML_VIRTUAL_IFACE* pVirtIf, DHCP_RELEASE
         return 0;
     }
     CcspTraceInfo (("%s %d: Stopping dhcpv4 client for %s %s\n", __FUNCTION__, __LINE__, pVirtIf->Name, (IsReleaseNeeded==STOP_DHCP_WITH_RELEASE)? "With release": "."));
-#if defined(GLOBAL_PLATFORM)
+#if defined(GLOBAL_SDK)
     CcspTraceInfo(("%s %d: Global SDK : Stopping udhcpc to release IPV4\n", __FUNCTION__, __LINE__));
     if(WanManager_StopUDHCPCProcess(pVirtIf->Name) == RETURN_OK)
     {

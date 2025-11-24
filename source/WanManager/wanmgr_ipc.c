@@ -254,6 +254,7 @@ static ANSC_STATUS WanMgr_IpcNewIhcMsg(ipc_ihc_data_t *pIhcMsg)
             }		    
             return WanMgr_SetInterfaceStatus(pIhcMsg->ifName, WANMGR_IFACE_CONNECTION_IPV6_DOWN);
             break;
+#ifndef GLOBAL_SDK
         case IPOE_MSG_IHC_ECHO_IPV4_IDLE:
             CcspTraceInfo(("[%s-%d] Received IPOE_MSG_IHC_ECHO_IPV4_IDLE from IHC for intf: %s \n", __FUNCTION__, __LINE__, pIhcMsg->ifName));
             {
@@ -275,7 +276,8 @@ static ANSC_STATUS WanMgr_IpcNewIhcMsg(ipc_ihc_data_t *pIhcMsg)
                     WanMgr_VirtualIfaceData_release(pVirtIf);
                 }
             }	    
-            break;			    
+            break;	
+#endif		    
         default:
             CcspTraceError(("[%s-%d] Invalid message type \n", __FUNCTION__, __LINE__));
             return ANSC_STATUS_FAILURE;
