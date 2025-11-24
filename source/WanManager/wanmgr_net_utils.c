@@ -189,7 +189,7 @@ void handle_link(struct nlmsghdr *nh)
                 if(strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)
                 {
                     CcspTraceInfo(("%s-%d: Setting WAN_IFACE_PHY_STATUS_UP for %s. \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
-                    v_secure_system("ip link add name %s link %s type vlan id %s", WAN_INTERFACE, DSL_L2_INTERFACE, VLAN_ID );                    
+                    v_secure_system("/etc/create_wan_interface.sh %s", DSL_L2_INTERFACE );                    
                     CcspTraceInfo(("%s-%d: Recreated WAN link %s. Restarting firewall\n", __FUNCTION__, __LINE__, WAN_INTERFACE));       
                     system("systemctl stop firewall;systemctl start firewall");       
                     DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
