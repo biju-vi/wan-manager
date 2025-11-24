@@ -1172,8 +1172,9 @@ void Wanmgr_TriggerReboot()
 
 BOOL WanMgr_isBridgeModeEnabled()
 {
+#ifndef GLOBAL_SDK
+    // Use non bridge mode for GLOBAL_SDK
     char dmlValue[64] = {0};
-
     //Query
     if (ANSC_STATUS_FAILURE == WanMgr_RdkBus_GetParamValues(PAM_COMPONENT_NAME, PAM_DBUS_PATH, TR181_LANMODE_PARAM, dmlValue))
     {
@@ -1192,7 +1193,7 @@ BOOL WanMgr_isBridgeModeEnabled()
         CcspTraceInfo(("%s %d - CPE is in Router Mode\n", __FUNCTION__, __LINE__));
         return FALSE;
     }
-
+#endif
     return FALSE;
 }
 
