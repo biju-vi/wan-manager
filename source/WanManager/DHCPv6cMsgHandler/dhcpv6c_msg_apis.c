@@ -612,8 +612,11 @@ static void * WanMgr_DhcpV6MsgHandler()
             sleep(5);
             continue;
         }
-
+#ifdef GLOBAL_SDK
+        if (!strncmp(msg, "dhcpcd", strlen("dhcpcd")))
+#else
         if (!strncmp(msg, "dibbler-client", strlen("dibbler-client")))
+#endif
         {
             //Interface name
             char IfaceName[64] = {0};
@@ -625,7 +628,11 @@ static void * WanMgr_DhcpV6MsgHandler()
             char v6pref[128] = {0}, preflen[12] = {0}, iapd_t1[32] = {0}, iapd_t2[32] = {0}, iapd_iaid[32] = {0}, iapd_pretm[32] = {0}, iapd_vldtm[32] = {0};
             int pref_len = 0;
 
+#ifdef GLOBAL_SDK
+            p = msg+strlen("dhcpcd");
+#else
             p = msg+strlen("dibbler-client");
+#endif
             while(isblank(*p)) p++;
             fprintf(stderr, "%s -- %d !!! get event from v6 client: %s \n", __FUNCTION__, __LINE__,p);
 #if defined (MAPT_UNIFICATION_ENABLED)
