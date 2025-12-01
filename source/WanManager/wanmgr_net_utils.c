@@ -151,8 +151,10 @@ static int WanManager_CalculatePsidAndV4Index(char *pdIPv6Prefix, int v6PrefixLe
 extern INT WanMgr_StartInteraceMonitor();
 static void handle_link(struct nlmsghdr *nh);
 static void* ThreadWanMgr_MonitorInterface(void *arg);
-int WanManager_StartUDHCPCProcess(DML_VIRTUAL_IFACE* p_VirtIf, int *pid);
-int WanManager_StopUDHCPCProcess(const char* const iFaceName);
+int WanManager_StartDHCPV4Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid);
+int WanManager_StartDHCPV6Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid);
+int WanManager_StopDHCPV4Client(const char* const iFaceName);
+int WanManager_StopDHCPV6Client(const char* const iFaceName);
 
 void handle_link(struct nlmsghdr *nh)
 {
@@ -651,11 +653,13 @@ int WanManager_StartDhcpv6Client(DML_VIRTUAL_IFACE* pVirtIf, IFACE_TYPE IfaceTyp
         return 0;
     }
 #ifdef GLOBAL_SDK
-    CcspTraceInfo(("%s %d: Global SDK: Running dhcpcd to get IPV6\n", __FUNCTION__, __LINE__));
-    if(WanManager_StartDHCPCDProcess(pVirtIf) == RETURN_OK)
+    int dhcp_pid = 0;
+    if(WanManager_StartDHCPV6Client(pVirtIf,&dhcp_pid) == RETURN_OK)
     {
         pVirtIf->IP.Dhcp6cStatus = DHCPC_STARTED;
-        pVirtIf->IP.Dhcp6cPid = 1;
+        pVirtIf->IP.Dhcp4cStatus = DHCPC_STARTED;
+        pVirtIf->IP.Dhcp6cPid = dhcp_pid;
+        pVirtIf->IP.Dhcp4cPid = dhcp_pid;
         // A seperate implementation is required to send events from dhcpcd hooks to wan manager
         WanManager_UpdateInterfaceStatus(pVirtIf, WANMGR_IFACE_CONNECTION_IPV6_UP);
     }
@@ -752,8 +756,8 @@ ANSC_STATUS WanManager_StopDhcpv6Client(DML_VIRTUAL_IFACE* pVirtIf, DHCP_RELEASE
     CcspTraceInfo (("%s %d: Stopping dhcpv6 client for %s %s\n", __FUNCTION__, __LINE__, pVirtIf->Name, (is_release_required==STOP_DHCP_WITH_RELEASE)? "With release": "."));
 
 #ifdef GLOBAL_SDK
-    CcspTraceInfo(("%s %d: Global SDK: Stopping dhcpcd to get IPV6\n", __FUNCTION__, __LINE__));
-    WanManager_StopDHCPCDProcess(pVirtIf->Name);
+    CcspTraceInfo(("%s %d: Global SDK: Stopping dhcpcd for IPV6\n", __FUNCTION__, __LINE__));
+    WanManager_StopDHCPV6Client(pVirtIf->Name);
     pVirtIf->IP.Dhcp6cStatus = DHCPC_STOPPED;
     pVirtIf->IP.Dhcp6cPid = 0;
     return 0;
@@ -806,17 +810,17 @@ int WanManager_StartDhcpv4Client(DML_VIRTUAL_IFACE* pVirtIf, char* baseInterface
         return 0;
     }
 #if defined(GLOBAL_SDK)
-    int udhcp_pid = 0;
-    CcspTraceInfo(("%s %d: Global SDK : Starting udhcpc to get IPV4\n", __FUNCTION__, __LINE__));
-    if(WanManager_StartUDHCPCProcess(pVirtIf, &udhcp_pid) == RETURN_OK)
+    int dhcp_pid = 0;
+    CcspTraceInfo(("%s %d: Global SDK : Starting dhcp client to get IPV4\n", __FUNCTION__, __LINE__));
+    if(WanManager_StartDHCPV4Client(pVirtIf, &dhcp_pid) == RETURN_OK)
     {
         pVirtIf->IP.Dhcp4cStatus = DHCPC_STARTED;
-        pVirtIf->IP.Dhcp4cPid = udhcp_pid;
-        CcspTraceInfo(("%s %d - Started udhcpc on interface %s, dhcpv4_pid %d \n", __FUNCTION__, __LINE__, pVirtIf->Name, pVirtIf->IP.Dhcp4cPid));
+        pVirtIf->IP.Dhcp4cPid = dhcp_pid;
+        CcspTraceInfo(("%s %d - Started dhcp client on interface %s, dhcpv4_pid %d \n", __FUNCTION__, __LINE__, pVirtIf->Name, pVirtIf->IP.Dhcp4cPid));
     }
     else
     {
-        CcspTraceError(("%s %d:  failed to start udhcpc. Returing pid -1.\n", __FUNCTION__, __LINE__));
+        CcspTraceError(("%s %d:  failed to start dhcpcd. Returing pid -1.\n", __FUNCTION__, __LINE__));
         pVirtIf->IP.Dhcp4cPid = -1;
         pVirtIf->IP.Dhcp4cStatus = DHCPC_FAILED;
         return -1;
@@ -883,8 +887,8 @@ ANSC_STATUS WanManager_StopDhcpv4Client(DML_VIRTUAL_IFACE* pVirtIf, DHCP_RELEASE
     }
     CcspTraceInfo (("%s %d: Stopping dhcpv4 client for %s %s\n", __FUNCTION__, __LINE__, pVirtIf->Name, (IsReleaseNeeded==STOP_DHCP_WITH_RELEASE)? "With release": "."));
 #if defined(GLOBAL_SDK)
-    CcspTraceInfo(("%s %d: Global SDK : Stopping udhcpc to release IPV4\n", __FUNCTION__, __LINE__));
-    if(WanManager_StopUDHCPCProcess(pVirtIf->Name) == RETURN_OK)
+    CcspTraceInfo(("%s %d: Global SDK : Stopping dhcpcd to release IPV4\n", __FUNCTION__, __LINE__));
+    if(WanManager_StopDHCPV4Client(pVirtIf->Name) == RETURN_OK)
     {
         pVirtIf->IP.Dhcp4cStatus = DHCPC_STOPPED;
         pVirtIf->IP.Dhcp4cPid = 0;

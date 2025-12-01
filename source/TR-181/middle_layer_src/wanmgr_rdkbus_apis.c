@@ -333,6 +333,7 @@ int get_Virtual_Interface_FromPSM(ULONG instancenum, ULONG virtInsNum ,DML_VIRTU
         AnscCopyString(pVirtIf->Name, "wan0");
         AnscCopyString(pVirtIf->Alias, "VDSL_1");
         pVirtIf->VLAN.NoOfInterfaceEntries = 1;
+        pVirtIf->IP.IPv6Source = DML_WAN_IP_SOURCE_DHCP;
     }
     if(instancenum == 2 && (virtInsNum + 1) == 1)
     {
@@ -340,6 +341,7 @@ int get_Virtual_Interface_FromPSM(ULONG instancenum, ULONG virtInsNum ,DML_VIRTU
         AnscCopyString(pVirtIf->Name, "erouter0");
         AnscCopyString(pVirtIf->Alias, "WANOE_1");
         pVirtIf->VLAN.NoOfInterfaceEntries = 1;
+        pVirtIf->IP.IPv6Source = DML_WAN_IP_SOURCE_DHCP;
     }
     if(instancenum == 3 && (virtInsNum + 1) == 1)
     {
@@ -347,6 +349,7 @@ int get_Virtual_Interface_FromPSM(ULONG instancenum, ULONG virtInsNum ,DML_VIRTU
         AnscCopyString(pVirtIf->Name, "pppoa0");
         AnscCopyString(pVirtIf->Alias, "ADSL_1");
         pVirtIf->VLAN.NoOfInterfaceEntries = 0;
+        pVirtIf->IP.IPv6Source = DML_WAN_IP_SOURCE_DHCP;
     }
 
     return 0;

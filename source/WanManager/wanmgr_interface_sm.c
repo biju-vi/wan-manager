@@ -1072,7 +1072,10 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
     if(route_flag == 0)
     {
         //If the default route is not present, Send a router solicit.
+#ifndef GLOBAL_SDK
+        // dhcpcd renew request has been send from standby mode which will include RS/RA
         WanManager_send_and_receive_rs(p_VirtIf);
+#endif
         return -1;
     }
 #ifdef GLOBAL_SDK
@@ -1560,7 +1563,11 @@ static int wan_tearDownIPv6(WanMgr_IfaceSM_Controller_t * pWanIfaceCtrl)
 
     CcspTraceInfo(("%s %d -  Deleting IPv6 global address route for '%s' interface\n", __FUNCTION__, __LINE__, p_VirtIf->Name));
     memset(acCmdLine, 0, sizeof(acCmdLine));
+#ifdef GLOBAL_SDK
+    snprintf(acCmdLine, sizeof(acCmdLine), "ip -6 addr flush scope global dev %s", ETH_BRIDGE_NAME);
+#else
     snprintf(acCmdLine, sizeof(acCmdLine), "ip -6 addr flush scope global dev %s", p_VirtIf->Name);
+#endif
     if (WanManager_DoSystemActionWithStatus("ip -6 addr flush scope global dev", acCmdLine) != 0)
         CcspTraceError(("%s-%d Failed to run cmd: %s", __FUNCTION__, __LINE__, acCmdLine));
 
@@ -3531,6 +3538,10 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
     DML_WAN_IFACE* pInterface = pWanIfaceCtrl->pIfaceData;
     DML_VIRTUAL_IFACE* p_VirtIf = WanMgr_getVirtualIfaceById(pInterface->VirtIfList, pWanIfaceCtrl->VirIfIdx);
 
+#ifdef GLOBAL_SDK
+    pInterface->Selection.Status = WAN_IFACE_ACTIVE;
+#endif
+
     if (pWanIfaceCtrl->WanEnable == FALSE ||
         pInterface->Selection.Enable == FALSE ||
         p_VirtIf->Enable == FALSE ||
@@ -3542,9 +3553,6 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
 
     // Start DHCP apps if not started
     WanMgr_MonitorDhcpApps(pWanIfaceCtrl);
-#ifdef GLOBAL_SDK
-    pInterface->Selection.Status = WAN_IFACE_ACTIVE;
-#endif
 
     if ((p_VirtIf->VLAN.Enable == TRUE &&  p_VirtIf->VLAN.Status ==  WAN_IFACE_LINKSTATUS_DOWN) ||
              (p_VirtIf->PPP.Enable == TRUE && p_VirtIf->PPP.LinkStatus != WAN_IFACE_PPP_LINK_STATUS_UP)|| // PPP is Enabled but DOWN
@@ -3560,10 +3568,15 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
         {
             if (p_VirtIf->IP.Ipv6Changed == TRUE)
             {
+#ifdef GLOBAL_SDK
+        CcspTraceInfo((" %s %d - Sending DHCPV6 rebind for RS/RA... \n", __FUNCTION__, __LINE__));
+        v_secure_system("/sbin/dhcpcd -n -z %s",p_VirtIf->Name);
+#endif
                 if (setUpLanPrefixIPv6(p_VirtIf) == RETURN_OK)
                 {
                     CcspTraceInfo((" %s %d - configure IPv6 prefix \n", __FUNCTION__, __LINE__));
                 }
+
                 p_VirtIf->IP.Ipv6Changed = FALSE;
             }
             if (checkIpv6LanAddressIsReadyToUse(p_VirtIf) == RETURN_OK)

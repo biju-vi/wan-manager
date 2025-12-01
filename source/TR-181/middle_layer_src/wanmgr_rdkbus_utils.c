@@ -793,6 +793,7 @@ ANSC_STATUS DmlGetInstanceByKeywordFromPandM(char *ifname, int *piInstanceNumber
 int WanMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength )
 {
     int     retPsmGet     = CCSP_SUCCESS;
+#ifndef GLOBAL_SDK
     CHAR   *param_value   = NULL, tmpOutput[BUFLEN_256] = {0};
 
     /* Input Validation */
@@ -825,7 +826,7 @@ int WanMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int 
     }
 #endif
     //CcspTraceInfo(("PSM Read => %s : %s\n", pParamName, pReturnVal));
-
+#endif
    return retPsmGet;
 }
 

@@ -125,7 +125,9 @@ ANSC_STATUS WanMgr_Group_Configure()
 
         if(pWanIfacegroup != NULL)
         {
+#ifndef GLOBAL_SDK
             DmlGetTotalNoOfGroups(&(pWanIfacegroup->ulTotalNumbWanIfaceGroup));
+#endif
             CcspTraceInfo(("%s %d - Total no of Groups %d\n",__FUNCTION__,__LINE__,pWanIfacegroup->ulTotalNumbWanIfaceGroup));
 
             pWanIfacegroup->Group = (WANMGR_IFACE_GROUP *) AnscAllocateMemory( sizeof(WANMGR_IFACE_GROUP) * pWanIfacegroup->ulTotalNumbWanIfaceGroup);
