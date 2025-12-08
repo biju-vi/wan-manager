@@ -58,7 +58,7 @@ int WanManager_StartDHCPV4Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
     if(access("/var/run/dhcpcd/pid", F_OK) != 0)
     {
         CcspTraceInfo(("%s %d Calling dhcpcd on %s.... \n", __FUNCTION__, __LINE__, p_VirtIf->Name));
-        v_secure_system("/sbin/dhcpcd -4 -K -q -C resolv.conf  -f /tmp/dhcpcd.conf --nobackground &" );
+        v_secure_system("/sbin/dhcpcd -4 -K -q -C resolv.conf  -f /tmp/dhcpcd.conf -b" );
         sleep(3);
         sprintf(pidFilePath, "/var/run/dhcpcd/pid");
     }
@@ -81,7 +81,7 @@ int WanManager_StartDHCPV4Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
                 if(pid)
                 {
                     *pid = atoi(pidStr);
-                    CcspTraceInfo(("%s %d udhcpc pid =%d \n", __FUNCTION__, __LINE__, *pid));
+                    CcspTraceInfo(("%s %d dhcp pid =%d \n", __FUNCTION__, __LINE__, *pid));
                 }
             }
             else
@@ -168,7 +168,7 @@ int WanManager_StartDHCPV6Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
     }
 
     CcspTraceInfo(("%s %d Calling dhcpcd with dual stack on %s.... \n", __FUNCTION__, __LINE__, p_VirtIf->Name));
-    v_secure_system("/sbin/dhcpcd -q -K -C resolv.conf  -f /tmp/dhcpcd.conf --nobackground &" );
+    v_secure_system("/sbin/dhcpcd -q -K -C resolv.conf  -f /tmp/dhcpcd.conf -b" );
     sleep(3);
     sprintf(pidFilePath, "/var/run/dhcpcd/pid");
 
@@ -185,7 +185,7 @@ int WanManager_StartDHCPV6Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
                 if(pid)
                 {
                     *pid = atoi(pidStr);
-                    CcspTraceInfo(("%s %d udhcpc pid =%d \n", __FUNCTION__, __LINE__, *pid));
+                    CcspTraceInfo(("%s %d dhcp pid =%d \n", __FUNCTION__, __LINE__, *pid));
                 }
             }
             else
@@ -1353,7 +1353,9 @@ dhcpv6c_dbg_thrd(void * in)
                             fprintf(fpp,"%s      %s\n", globalIP,hostname);
                             fclose(fpp);
                             v_secure_system("killall -HUP dnsmasq");
+#ifndef GLOBAL_SDK
                             v_secure_system("systemctl restart CcspWebUI.service");
+#endif
                         }
 #endif
                     }

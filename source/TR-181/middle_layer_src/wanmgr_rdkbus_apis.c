@@ -68,6 +68,7 @@ int get_Wan_Interface_ParametersFromPSM(ULONG instancenum, DML_WAN_IFACE* p_Inte
     p_Interface->uiInstanceNumber = instancenum;
 
 #ifdef GLOBAL_SDK
+        char path[128] = { 0 };
         /*
         dmsb.wanmanager.if.1.Selection.Enable
         dmsb.wanmanager.if.2.Selection.Enable
@@ -97,8 +98,8 @@ int get_Wan_Interface_ParametersFromPSM(ULONG instancenum, DML_WAN_IFACE* p_Inte
 
         if(instancenum == 1)
         {
-            p_Interface->Selection.Enable = TRUE;
-            p_Interface->Selection.ActiveLink = TRUE;
+            p_Interface->Selection.Enable = FALSE;
+            p_Interface->Selection.ActiveLink = FALSE;
             AnscCopyString(p_Interface->Name, "dsl0");
             AnscCopyString(p_Interface->DisplayName, "DSL");
             AnscCopyString(p_Interface->AliasName, "DSL");
@@ -108,12 +109,20 @@ int get_Wan_Interface_ParametersFromPSM(ULONG instancenum, DML_WAN_IFACE* p_Inte
             p_Interface->Selection.Group = 1;
             p_Interface->NoOfVirtIfs = 1;
             p_Interface->Selection.RequiresReboot = FALSE;
-            // wan0 is already up during boot
-            p_Interface->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_UP;
+            p_Interface->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_DOWN;
+
+            snprintf(path, sizeof(path), "/sys/class/net/ptm0/operstate");
+            if (access(path, F_OK) == 0) 
+            {
+                p_Interface->Selection.Enable = TRUE;
+                p_Interface->Selection.ActiveLink = TRUE;
+                p_Interface->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_UP;
+                CcspTraceInfo(("%s %d %s physical status is UP \n", __FUNCTION__, __LINE__,p_Interface->Name));
+            }
         }
         if(instancenum == 2)
         {
-            p_Interface->Selection.Enable = TRUE;
+            p_Interface->Selection.Enable = FALSE;
             p_Interface->Selection.ActiveLink = FALSE;
             AnscCopyString(p_Interface->Name, "eth0");
             AnscCopyString(p_Interface->DisplayName, "WANOE");
@@ -124,6 +133,28 @@ int get_Wan_Interface_ParametersFromPSM(ULONG instancenum, DML_WAN_IFACE* p_Inte
             p_Interface->Selection.Group = 1;
             p_Interface->NoOfVirtIfs = 1;
             p_Interface->Selection.RequiresReboot = FALSE;
+            p_Interface->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_DOWN;
+
+            snprintf(path, sizeof(path), "/sys/class/net/%s/operstate", p_Interface->Name);
+
+            if (access(path, F_OK) == 0) 
+            {
+                char state[16];
+                FILE *fp = fopen(path, "r");
+                if(fp)
+                {
+                    fgets(state, sizeof(state), fp);
+                    fclose(fp);
+                    state[strcspn(state, "\n")] = '\0';
+                    if (strcmp(state, "up") == 0)
+                    {
+                        p_Interface->Selection.Enable = TRUE;
+                        p_Interface->Selection.ActiveLink = TRUE;
+                        p_Interface->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_UP;
+                        CcspTraceInfo(("%s %d %s physical status is UP \n", __FUNCTION__, __LINE__,p_Interface->Name));
+                    }
+                }
+            }
         }
         if(instancenum == 3)
         {
@@ -338,7 +369,7 @@ int get_Virtual_Interface_FromPSM(ULONG instancenum, ULONG virtInsNum ,DML_VIRTU
     if(instancenum == 2 && (virtInsNum + 1) == 1)
     {
         pVirtIf->Enable = TRUE;
-        AnscCopyString(pVirtIf->Name, "erouter0");
+        AnscCopyString(pVirtIf->Name, "wan0");
         AnscCopyString(pVirtIf->Alias, "WANOE_1");
         pVirtIf->VLAN.NoOfInterfaceEntries = 1;
         pVirtIf->IP.IPv6Source = DML_WAN_IP_SOURCE_DHCP;
@@ -1925,6 +1956,8 @@ ANSC_STATUS UpdateAndPersistVLANInUse(DML_VIRTUAL_IFACE * pVirtIf)
 
 ANSC_STATUS DmlSetWanActiveLinkInPSMDB( UINT uiInterfaceIdx , bool storeValue )
 {
+
+#ifndef GLOBAL_SDK
     int retPsmSet = CCSP_SUCCESS;
     char param_name[256] = {0};
     char param_value[256] = {0};
@@ -1948,6 +1981,7 @@ ANSC_STATUS DmlSetWanActiveLinkInPSMDB( UINT uiInterfaceIdx , bool storeValue )
         return ANSC_STATUS_FAILURE;
     }
 
+#endif
     return ANSC_STATUS_SUCCESS;
 }
 

@@ -144,7 +144,7 @@ static int ParsePrefixAddress(const char *prefixAddr, char *address, uint32_t *p
 static int WanManager_CalculatePsidAndV4Index(char *pdIPv6Prefix, int v6PrefixLen, int iapdPrefixLen, int v4PrefixLen, int *psidValue, int *ipv4IndexValue, int *psidLen);
 
 #ifdef GLOBAL_SDK
-#define DSL_L2_INTERFACE "ptm0" 
+#define ETH_L2_INTERFACE "eth0" 
 #define WAN_INTERFACE "wan0"
 #define VLAN_ID "101"
 // For maniaging phy status
@@ -178,22 +178,21 @@ void handle_link(struct nlmsghdr *nh)
     if (current_link_status && !last_link_status) 
     {
         CcspTraceInfo(("%s-%d: link up detected for %s \n", __FUNCTION__, __LINE__,ifname));       
-        // phy status became up
-        if(strcmp(ifname, DSL_L2_INTERFACE) == 0 || strcmp(ifname, WAN_INTERFACE) == 0)
+        // netlink can detect L2 phy status
+        if(strcmp(ifname, PTM_INTERFACE) == 0 || strcmp(ifname, ETH_L2_INTERFACE) == 0)
         {
-            CcspTraceInfo(("%s-%d: WAN link is UP \n", __FUNCTION__, __LINE__));
+            CcspTraceInfo(("%s-%d: WAN L2 link %s is UP \n", __FUNCTION__, __LINE__, ifname));
             uiTotalIfaces = WanMgr_IfaceData_GetTotalWanIface();
             for( uiLoopCount = 0; uiLoopCount < uiTotalIfaces; uiLoopCount++ )
             {
                 WanMgr_Iface_Data_t*   pWanDmlIfaceData = WanMgr_GetIfaceData_locked(uiLoopCount);
                 DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
-                CcspTraceInfo(("%s-%d: wanmanager ifname = %s \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
-                if(strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)
+                // Ethernet is using "eth0" everywhere
+                if(((strcmp(ifname, PTM_INTERFACE) == 0) && (strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)) || (strcmp(pWanIfaceData->Name, ifname) == 0))
                 {
-                    CcspTraceInfo(("%s-%d: Setting WAN_IFACE_PHY_STATUS_UP for %s. \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
-                    v_secure_system("/etc/create_wan_interface.sh %s", DSL_L2_INTERFACE );                    
-                    CcspTraceInfo(("%s-%d: Recreated WAN link %s. Restarting firewall\n", __FUNCTION__, __LINE__, WAN_INTERFACE));       
-                    system("systemctl stop firewall;systemctl start firewall");       
+                    CcspTraceInfo(("%s-%d: Rcreating L3 interface for %s. \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
+                    v_secure_system("/etc/init/wan.sh RECREATE_WAN_INTERFACE %s", pWanIfaceData->Name );                    
+                    CcspTraceInfo(("%s-%d: Recreated WAN link %s. \n", __FUNCTION__, __LINE__, WAN_INTERFACE));       
                     DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
                     pWanIfaceData->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_UP;
                     WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
@@ -206,20 +205,19 @@ void handle_link(struct nlmsghdr *nh)
     }
     else if (!current_link_status && last_link_status)
     {
-        CcspTraceInfo(("%s-%d: link down detected. \n", __FUNCTION__, __LINE__,ifname));       
+        CcspTraceInfo(("%s-%d: link down detected for %s. \n", __FUNCTION__, __LINE__,ifname));       
         // phy status became down    
-        if(strcmp(ifname, DSL_L2_INTERFACE) == 0)
+        if(strcmp(ifname, PTM_INTERFACE) == 0 || strcmp(ifname, ETH_L2_INTERFACE) == 0)
         {
-            CcspTraceInfo(("%s-%d: WAN link Down. \n", __FUNCTION__, __LINE__));       
+            CcspTraceInfo(("%s-%d: WAN L2 link %s is DOWN \n", __FUNCTION__, __LINE__, ifname));
             uiTotalIfaces = WanMgr_IfaceData_GetTotalWanIface();
             for( uiLoopCount = 0; uiLoopCount < uiTotalIfaces; uiLoopCount++ )
             {
                 WanMgr_Iface_Data_t*   pWanDmlIfaceData = WanMgr_GetIfaceData_locked(uiLoopCount);
                 DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
-                CcspTraceInfo(("%s-%d: wanmanager ifname = %s \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
-                if(strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)
+                if(((strcmp(ifname, PTM_INTERFACE) == 0) && (strcmp(pWanIfaceData->Name, DSL_INTERFACE) == 0)) || (strcmp(pWanIfaceData->Name, ifname) == 0))
                 {
-                    CcspTraceInfo(("%s-%d: Setting WAN_IFACE_PHY_STATUS_DOWN for dsl0. \n", __FUNCTION__, __LINE__));       
+                    CcspTraceInfo(("%s-%d: Setting WAN_IFACE_PHY_STATUS_DOWN for %s. \n", __FUNCTION__, __LINE__,pWanIfaceData->Name));       
                     DML_WAN_IFACE* pWanIfaceData = &(pWanDmlIfaceData->data);
                     pWanIfaceData->BaseInterfaceStatus = WAN_IFACE_PHY_STATUS_DOWN;
                     WanMgrDml_GetIfaceData_release(pWanDmlIfaceData);
@@ -2076,10 +2074,17 @@ int WanManager_AddDefaultGatewayRoute(DEVICE_NETWORKING_MODE DeviceNwMode, const
         /* For IPoE, always use gw IP address. */
         if (IsValidIpv4Address(pIpv4Info->gateway) && !(IsZeroIpvxAddress(AF_SELECT_IPV4, pIpv4Info->gateway)))
         {
+#ifdef GLOBAL_SDK
+            CcspTraceInfo(("%s %d Flushing existing ipv4 default route \n",__FUNCTION__,__LINE__));
+            v_secure_system("ip route del default 2>/dev/null");
+            snprintf(cmd, sizeof(cmd), "ip route add default via %s dev %s", pIpv4Info->gateway, pIpv4Info->ifname);
+#else
             snprintf(cmd, sizeof(cmd), "route add default gw %s dev %s", pIpv4Info->gateway, pIpv4Info->ifname);
+#endif
             WanManager_DoSystemAction("SetUpDefaultSystemGateway:", cmd);
             CcspTraceInfo(("%s %d - The default gateway route entries set!, cmd(%s)\n",__FUNCTION__,__LINE__, cmd));
         }
+        
     }
     else if (DeviceNwMode == MODEM_MODE)   
     {
