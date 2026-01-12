@@ -125,7 +125,9 @@ ANSC_STATUS WanMgr_Group_Configure()
 
         if(pWanIfacegroup != NULL)
         {
+#ifndef GLOBAL_SDK
             DmlGetTotalNoOfGroups(&(pWanIfacegroup->ulTotalNumbWanIfaceGroup));
+#endif
             CcspTraceInfo(("%s %d - Total no of Groups %d\n",__FUNCTION__,__LINE__,pWanIfacegroup->ulTotalNumbWanIfaceGroup));
 
             pWanIfacegroup->Group = (WANMGR_IFACE_GROUP *) AnscAllocateMemory( sizeof(WANMGR_IFACE_GROUP) * pWanIfacegroup->ulTotalNumbWanIfaceGroup);
@@ -148,7 +150,13 @@ ANSC_STATUS WanMgr_Group_Configure()
                 pWanIfacegroup->Group[i].ResetSelectedInterface = FALSE;
                 pWanIfacegroup->Group[i].InitialScanComplete = FALSE;
                 pWanIfacegroup->Group[i].Policy = AUTOWAN_MODE;
+#ifdef GLOBAL_SDK
+                pWanIfacegroup->Group[i].Policy = PARALLEL_SCAN;
+#endif
+#ifndef GLOBAL_SDK
                 WanMgr_Read_GroupConf_FromPSM(&(pWanIfacegroup->Group[i]), i);
+#endif
+                
                 CcspTraceInfo(("%s %d Group[%d] Policy : %d \n", __FUNCTION__, __LINE__, i, pWanIfacegroup->Group[i].Policy));
             }
         }

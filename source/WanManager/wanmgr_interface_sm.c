@@ -994,7 +994,7 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
     int i;
     char IfaceName[BUFLEN_16] = {0};
     int BridgeMode = 0;
-
+#ifndef GLOBAL_SDK
     { //TODO : temporary debug code to identify the bridgemode sysevent failure issue.
         char Output[BUFLEN_16] = {0};
         if (sysevent_get(sysevent_fd, sysevent_token, "bridge_mode", Output, sizeof(Output)) !=0)
@@ -1004,6 +1004,7 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
         BridgeMode = atoi(Output);
         CcspTraceInfo(("%s-%d: <<DEBUG>> bridge_mode sysevent value set to =%d \n", __FUNCTION__, __LINE__,  BridgeMode));
     }
+#endif
      /*TODO:
      *Below Code should be removed once V6 Prefix/IP is assigned on erouter0 Instead of brlan0 for sky Devices.
      */
@@ -1071,10 +1072,35 @@ static int checkIpv6LanAddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
     if(route_flag == 0)
     {
         //If the default route is not present, Send a router solicit.
+#ifndef GLOBAL_SDK
+        // dhcpcd renew request has been send from standby mode which will include RS/RA
         WanManager_send_and_receive_rs(p_VirtIf);
+#endif
         return -1;
     }
-
+#ifdef GLOBAL_SDK
+CcspTraceInfo(("%s %d Checking if global IPV6 address is configured on  %s \n", __FUNCTION__, __LINE__,IfaceName));
+//Check if LAN interface has global ipv6 address
+    FILE *fp_global = NULL;
+    int global_address = 0;
+    if ((fp_global = v_secure_popen("r","ip -6 addr show %s scope global | grep inet6", IfaceName)))
+    {
+        if(fp_global != NULL) 
+        {
+            fgets(buffer, BUFLEN_256, fp_global);
+            if(strlen(buffer) > 0 ) {
+                global_address = 1;
+                CcspTraceInfo(("%s %d Global IPV6 Address Present on %s \n", __FUNCTION__, __LINE__,IfaceName));
+            }
+            v_secure_pclose(fp_global);
+        }
+    }
+    if(global_address == 0)
+    {
+        CcspTraceError(("%s %d Failed to get global IPV6 Address on %s \n", __FUNCTION__, __LINE__,IfaceName));
+        return -1;
+    }
+#endif
     return 0;
 }
 
@@ -1337,6 +1363,7 @@ static int wan_tearDownIPv4(WanMgr_IfaceSM_Controller_t * pWanIfaceCtrl)
         ret = RETURN_ERR;
     }
 
+#ifndef GLOBAL_SDK
     /* ReSet the required sysevents. */
     sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_IPV4_CONNECTION_STATE, WAN_STATUS_DOWN, 0);
     sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_CURRENT_IPV4_LINK_STATE, WAN_STATUS_DOWN, 0);
@@ -1345,6 +1372,10 @@ static int wan_tearDownIPv4(WanMgr_IfaceSM_Controller_t * pWanIfaceCtrl)
     sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_CURRENT_WAN_IPADDR, "0.0.0.0", 0);
     sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_CURRENT_WAN_SUBNET, "255.255.255.0", 0);
     sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_FIREWALL_RESTART, NULL, 0);
+#else
+    CcspTraceInfo(("%s %d - Flushing IP for %s \n", __FUNCTION__, __LINE__,p_VirtIf->IP.Ipv4Data.ifname));
+    v_secure_system("ip addr flush dev %s", p_VirtIf->IP.Ipv4Data.ifname);
+#endif
     if (strstr(pInterface->BaseInterface, "Ethernet"))
     {
         sysevent_set(sysevent_fd, sysevent_token, SYSEVENT_ETHWAN_INITIALIZED, "0", 0);
@@ -1534,13 +1565,14 @@ static int wan_tearDownIPv6(WanMgr_IfaceSM_Controller_t * pWanIfaceCtrl)
     snprintf(acCmdLine, sizeof(acCmdLine), "ip -6 route del default dev %s", p_VirtIf->Name);
     if (WanManager_DoSystemActionWithStatus("ip -6 route delete default", acCmdLine) != 0)
         CcspTraceError(("%s-%d Failed to run cmd: %s", __FUNCTION__, __LINE__, acCmdLine));
-
+#ifndef GLOBAL_SDK
+    // This will flush ULA address also
     CcspTraceInfo(("%s %d -  Deleting IPv6 global address route for '%s' interface\n", __FUNCTION__, __LINE__, p_VirtIf->Name));
     memset(acCmdLine, 0, sizeof(acCmdLine));
     snprintf(acCmdLine, sizeof(acCmdLine), "ip -6 addr flush scope global dev %s", p_VirtIf->Name);
     if (WanManager_DoSystemActionWithStatus("ip -6 addr flush scope global dev", acCmdLine) != 0)
         CcspTraceError(("%s-%d Failed to run cmd: %s", __FUNCTION__, __LINE__, acCmdLine));
-
+#endif
     // Reset sysvevents.
     char previousPrefix[BUFLEN_48] = {0};
     char previousPrefix_vldtime[BUFLEN_48] = {0};
@@ -2544,6 +2576,21 @@ static eWanState_t wan_transition_ipv6_up(WanMgr_IfaceSM_Controller_t* pWanIface
     WanMgr_SendMsgTo_ConnectivityCheck(pWanIfaceCtrl, CONNECTION_MSG_IPV6 , TRUE);
 
     Update_Interface_Status();
+#ifdef GLOBAL_SDK
+    /* This state is called because ipv6 global address and route are already checked through "checkIpv6LanAddressIsReadyToUse" */
+    if( p_VirtIf->IP.Ipv4Status == WAN_IFACE_IPV4_STATE_UP)
+    {
+        CcspTraceInfo(("%s %d - Setting WAN_STATE_DUAL_STACK_ACTIVE \n", __FUNCTION__, __LINE__));
+        v_secure_system("pidof dnsmasq | xargs kill -9");
+        v_secure_system("dnsmasq)");
+        CcspTraceInfo(("%s %d - Refreshed dnsmasq \n", __FUNCTION__, __LINE__));
+        return WAN_STATE_DUAL_STACK_ACTIVE;
+    }
+    else
+    {
+        CcspTraceError(("%s %d - Dual Stack is not UP \n", __FUNCTION__, __LINE__));
+    }
+#endif
     sysevent_get(sysevent_fd, sysevent_token, SYSEVENT_WAN_SERVICE_STATUS, buf, sizeof(buf));
     //TODO: Firewall IPv6 FORWARD rules are not working if SYSEVENT_WAN_SERVICE_STATUS is set for REMOTE_IFACE. Modify firewall similar for backup interface similar to primary.
     if (strcmp(buf, WAN_STATUS_STARTED) && pInterface->IfaceType != REMOTE_IFACE)
@@ -3496,6 +3543,10 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
     DML_WAN_IFACE* pInterface = pWanIfaceCtrl->pIfaceData;
     DML_VIRTUAL_IFACE* p_VirtIf = WanMgr_getVirtualIfaceById(pInterface->VirtIfList, pWanIfaceCtrl->VirIfIdx);
 
+#ifdef GLOBAL_SDK
+    pInterface->Selection.Status = WAN_IFACE_ACTIVE;
+#endif
+
     if (pWanIfaceCtrl->WanEnable == FALSE ||
         pInterface->Selection.Enable == FALSE ||
         p_VirtIf->Enable == FALSE ||
@@ -3522,10 +3573,15 @@ static eWanState_t wan_state_standby(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl)
         {
             if (p_VirtIf->IP.Ipv6Changed == TRUE)
             {
+#ifdef GLOBAL_SDK
+        CcspTraceInfo((" %s %d - Sending DHCPV6 rebind for RS/RA... \n", __FUNCTION__, __LINE__));
+        v_secure_system("/sbin/dhcpcd -n -z %s",p_VirtIf->Name);
+#endif
                 if (setUpLanPrefixIPv6(p_VirtIf) == RETURN_OK)
                 {
                     CcspTraceInfo((" %s %d - configure IPv6 prefix \n", __FUNCTION__, __LINE__));
                 }
+
                 p_VirtIf->IP.Ipv6Changed = FALSE;
             }
             if (checkIpv6LanAddressIsReadyToUse(p_VirtIf) == RETURN_OK)

@@ -35,12 +35,14 @@ ANSC_STATUS WanMgr_Core_Init(void)
 {
     ANSC_STATUS retStatus = ANSC_STATUS_FAILURE;
 
+#ifndef GLOBAL_SDK
     //Initialise system messages
     retStatus = WanMgr_SysEvents_Init();
     if(retStatus != ANSC_STATUS_SUCCESS)
     {
         CcspTraceInfo(("%s %d - WanManager failed to initialise!\n", __FUNCTION__, __LINE__ ));
     }
+#endif
 
     //Starts the IPC thread
     retStatus = WanMgr_StartIpcServer();
@@ -62,6 +64,7 @@ ANSC_STATUS WanMgr_Core_Init(void)
 ANSC_STATUS WanMgr_Core_Start(void)
 {
     ANSC_STATUS retStatus = ANSC_STATUS_SUCCESS;
+#ifndef GLOBAL_SDK
 #ifdef RBUS_BUILD_FLAG_ENABLE
     WanMgr_Rbus_UpdateLocalWanDb();
     WanMgr_Rbus_SubscribeDML();
@@ -73,6 +76,10 @@ ANSC_STATUS WanMgr_Core_Start(void)
     WanMgr_WanIfaceMarkingInit();
 #endif /* * FEATURE_802_1P_COS_MARKING */
     //Initialise Policy State Machine
+#endif
+#ifdef GLOBAL_SDK
+    WanMgr_StartInteraceMonitor(); 
+#endif
     WanController_Init_StateMachine();
 
     return retStatus;

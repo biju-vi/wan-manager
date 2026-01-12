@@ -793,6 +793,7 @@ ANSC_STATUS DmlGetInstanceByKeywordFromPandM(char *ifname, int *piInstanceNumber
 int WanMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int returnValLength )
 {
     int     retPsmGet     = CCSP_SUCCESS;
+#ifndef GLOBAL_SDK
     CHAR   *param_value   = NULL, tmpOutput[BUFLEN_256] = {0};
 
     /* Input Validation */
@@ -825,7 +826,7 @@ int WanMgr_RdkBus_GetParamValuesFromDB( char *pParamName, char *pReturnVal, int 
     }
 #endif
     //CcspTraceInfo(("PSM Read => %s : %s\n", pParamName, pReturnVal));
-
+#endif
    return retPsmGet;
 }
 
@@ -1080,6 +1081,8 @@ ANSC_STATUS WanMgr_GetSelectedIPMode(DML_VIRTUAL_IFACE * pVirtIf)
     // ModeForceEnable set to true on changing the IP.Mode data model.
     // IP.Mode will have precedence over Preferred Mode when ModeForceEnable is set to true.
     // ModeForceEnable is reset to false only on Factory Reset.
+#ifndef GLOBAL_SDK
+    // Use default value of pVirtIf for GLOBAL_SDK
     if(pVirtIf->IP.ModeForceEnable == FALSE)
     {
         if(CCSP_SUCCESS == WanMgr_RdkBus_GetParamValuesFromDB("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.IPModeEnable",param_value,sizeof(param_value)))
@@ -1096,6 +1099,7 @@ ANSC_STATUS WanMgr_GetSelectedIPMode(DML_VIRTUAL_IFACE * pVirtIf)
             return ANSC_STATUS_FAILURE;
         }
     }
+#endif
     CcspTraceInfo(("%s %d - IP SelectedMode=[%d] IP ModeForceEnable=[%d]\n", __FUNCTION__, __LINE__, pVirtIf->IP.SelectedMode, pVirtIf->IP.ModeForceEnable));
     return ANSC_STATUS_SUCCESS;
 }
@@ -1172,8 +1176,9 @@ void Wanmgr_TriggerReboot()
 
 BOOL WanMgr_isBridgeModeEnabled()
 {
+#ifndef GLOBAL_SDK
+    // Use non bridge mode for GLOBAL_SDK
     char dmlValue[64] = {0};
-
     //Query
     if (ANSC_STATUS_FAILURE == WanMgr_RdkBus_GetParamValues(PAM_COMPONENT_NAME, PAM_DBUS_PATH, TR181_LANMODE_PARAM, dmlValue))
     {
@@ -1192,7 +1197,7 @@ BOOL WanMgr_isBridgeModeEnabled()
         CcspTraceInfo(("%s %d - CPE is in Router Mode\n", __FUNCTION__, __LINE__));
         return FALSE;
     }
-
+#endif
     return FALSE;
 }
 

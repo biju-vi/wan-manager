@@ -369,7 +369,9 @@ static WcPsPolicyState_t Transition_SelectingInterface (WanMgr_Policy_Controller
                 {
                     pWanIfaceData->Selection.Status = WAN_IFACE_SELECTED;
                     pWanIfaceData->Selection.ActiveLink = TRUE;
+#ifndef GLOBAL_SDK
                     DmlSetWanActiveLinkInPSMDB(uiLoopCount, TRUE);
+#endif
                 }else
                 {
                     CcspTraceInfo(("%s %d: Calling WanMgr_StopWanVISM for interface %d\n", __FUNCTION__, __LINE__, uiLoopCount));

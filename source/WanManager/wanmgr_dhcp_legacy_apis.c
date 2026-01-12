@@ -37,6 +37,200 @@
 #include <unistd.h>
 #include "secure_wrapper.h"
 
+#ifdef GLOBAL_SDK
+int WanManager_StartDHCPV4Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
+{
+    char pidFilePath[BUFLEN_32]  = {0};
+    char pidStr[BUFLEN_16]       = {0};
+    FILE *fp                     = NULL;
+
+    if(NULL == p_VirtIf)
+    {
+        CcspTraceError(("%s %d Null function argument \n", __FUNCTION__, __LINE__));
+        return ANSC_STATUS_FAILURE;
+    }
+#ifdef ENABLE_UDHCPC
+    CcspTraceInfo(("%s %d Calling udhcpc on interface %s.... \n", __FUNCTION__, __LINE__,p_VirtIf->Name));
+    v_secure_system("/etc/udhcpc.sh %s", p_VirtIf->Name );
+    sleep(3);
+    sprintf(pidFilePath, "/tmp/udhcpc-%s.pid", p_VirtIf->Name);
+#else
+    if(access("/var/run/dhcpcd/pid", F_OK) != 0)
+    {
+        CcspTraceInfo(("%s %d Calling dhcpcd on %s.... \n", __FUNCTION__, __LINE__, p_VirtIf->Name));
+        v_secure_system("/sbin/dhcpcd -4 -K -q -C resolv.conf  -f /tmp/dhcpcd.conf -b" );
+        sleep(3);
+        sprintf(pidFilePath, "/var/run/dhcpcd/pid");
+    }
+    else
+    {
+        CcspTraceInfo(("%s %d dhcpcd is already running for ipv4 on %s.... \n", __FUNCTION__, __LINE__, p_VirtIf->Name));
+        return RETURN_OK;
+    }
+#endif
+    if (access(pidFilePath, F_OK) == 0) 
+    {
+        CcspTraceInfo(("%s %d PID created... \n", __FUNCTION__, __LINE__));
+        if((fp = fopen(pidFilePath, "r")) != NULL)
+        {
+            fgets(pidStr, sizeof(pidStr), fp);
+
+            if(strlen(pidStr) > 0)
+            {
+                CcspTraceInfo(("%s %d pid =%d \n", __FUNCTION__, __LINE__, atoi(pidStr)));
+                if(pid)
+                {
+                    *pid = atoi(pidStr);
+                    CcspTraceInfo(("%s %d dhcp pid =%d \n", __FUNCTION__, __LINE__, *pid));
+                }
+            }
+            else
+            {
+                CcspTraceInfo(("%s %d PID is empty in pidfile... \n", __FUNCTION__, __LINE__));
+                fclose(fp);
+                return RETURN_ERR;
+            }
+            fclose(fp);
+        }
+        else
+        {
+            CcspTraceInfo(("%s %d PID file opening failed... \n", __FUNCTION__, __LINE__));
+            return RETURN_ERR;
+        }
+    }
+    else
+    {
+        CcspTraceInfo(("%s %d PID not created... \n", __FUNCTION__, __LINE__));
+        return RETURN_ERR;
+    }
+    return RETURN_OK;
+}
+
+int WanManager_StopDHCPV4Client(const char* const iFaceName)
+{
+    char buff[BUFLEN_16]         = {0};
+    FILE *fp                     = NULL;
+    char pidFilePath[BUFLEN_32]  = {0};
+    char pidStr[BUFLEN_16]       = {0};
+    char *endptr                 = NULL;
+    int  pid                     = -1;
+
+    if (NULL == iFaceName)
+    {
+        CcspTraceError(("%s %d - Invalid function argument \n", __FUNCTION__, __LINE__));
+        return RETURN_ERR;
+    }
+
+#ifdef ENABLE_UDHCPC
+    /* Get the dhcp service process ID from pid file and kill the service. */
+    sprintf(pidFilePath, "/tmp/udhcpc-%s.pid", iFaceName);
+#else
+    v_secure_system("/sbin/dhcpcd -x");
+    sleep(2);
+    return RETURN_OK;
+#endif
+    if ((fp = fopen(pidFilePath, "r")) != NULL)
+    {
+        if (fgets(pidStr, sizeof(pidStr), fp) != NULL)
+        {
+           pid = strtol(pidStr, &endptr, 10);
+        }
+        fclose(fp);
+    }
+
+    if (pid > 0)
+    {
+        kill(pid, SIGUSR2);
+        if (pid > 0)
+        {
+            kill(pid, SIGKILL);
+        }
+    }
+    return RETURN_OK;
+}
+
+int WanManager_StartDHCPV6Client(DML_VIRTUAL_IFACE* p_VirtIf, int *pid)
+{
+    char pidFilePath[BUFLEN_32]  = {0};
+    char pidStr[BUFLEN_16]       = {0};
+    FILE *fp                     = NULL;
+
+    if(NULL == p_VirtIf)
+    {
+        CcspTraceError(("%s %d Null function argument \n", __FUNCTION__, __LINE__));
+        return ANSC_STATUS_FAILURE;
+    }
+
+    if(access("/var/run/dhcpcd/pid", F_OK) == 0)
+    {
+        v_secure_system("/sbin/dhcpcd -x" );
+        sleep(3);
+    }
+
+    CcspTraceInfo(("%s %d Calling dhcpcd with dual stack on %s.... \n", __FUNCTION__, __LINE__, p_VirtIf->Name));
+    v_secure_system("/sbin/dhcpcd -q -K -C resolv.conf  -f /tmp/dhcpcd.conf -b" );
+    sleep(3);
+    sprintf(pidFilePath, "/var/run/dhcpcd/pid");
+
+    if (access(pidFilePath, F_OK) == 0)
+    {
+        CcspTraceInfo(("%s %d PID created... \n", __FUNCTION__, __LINE__));
+        if((fp = fopen(pidFilePath, "r")) != NULL)
+        {
+            fgets(pidStr, sizeof(pidStr), fp);
+
+            if(strlen(pidStr) > 0)
+            {
+                CcspTraceInfo(("%s %d pid =%d \n", __FUNCTION__, __LINE__, atoi(pidStr)));
+                if(pid)
+                {
+                    *pid = atoi(pidStr);
+                    CcspTraceInfo(("%s %d dhcp pid =%d \n", __FUNCTION__, __LINE__, *pid));
+                }
+            }
+            else
+            {
+                CcspTraceInfo(("%s %d PID is empty in pidfile... \n", __FUNCTION__, __LINE__));
+                fclose(fp);
+                return RETURN_ERR;
+            }
+            fclose(fp);
+        }
+        else
+        {
+            CcspTraceInfo(("%s %d PID file opening failed... \n", __FUNCTION__, __LINE__));
+            return RETURN_ERR;
+        }
+    }
+    else
+    {
+        CcspTraceInfo(("%s %d PID not created... \n", __FUNCTION__, __LINE__));
+        return RETURN_ERR;
+    }
+    return RETURN_OK;
+}
+
+int WanManager_StopDHCPV6Client(const char* const iFaceName)
+{
+    char buff[BUFLEN_16]         = {0};
+    FILE *fp                     = NULL;
+    char pidFilePath[BUFLEN_32]  = {0};
+    char pidStr[BUFLEN_16]       = {0};
+    char *endptr                 = NULL;
+    int  pid                     = -1;
+
+    if (NULL == iFaceName)
+    {
+        CcspTraceError(("%s %d - Invalid function argument \n", __FUNCTION__, __LINE__));
+        return RETURN_ERR;
+    }
+    v_secure_system("/sbin/dhcpcd -x");
+    sleep(2);
+    return RETURN_OK;
+
+}
+#endif // GLOBAL_SDK
+
 #if defined(_DT_WAN_Manager_Enable_)
 int _get_shell_output2(char * cmd, char * dststr)
 {
@@ -1159,7 +1353,9 @@ dhcpv6c_dbg_thrd(void * in)
                             fprintf(fpp,"%s      %s\n", globalIP,hostname);
                             fclose(fpp);
                             v_secure_system("killall -HUP dnsmasq");
+#ifndef GLOBAL_SDK
                             v_secure_system("systemctl restart CcspWebUI.service");
+#endif
                         }
 #endif
                     }
