@@ -281,6 +281,7 @@ int main(int argc, char* argv[])
     extern ANSC_HANDLE bus_handle;
     char *subSys            = NULL;
     DmErr_t    err;
+    const char* controllerStateFile = "/tmp/wan_policy_interface_started";
 
     CcspTraceInfo(("NonRoot feature is enabled, dropping root privileges for RdkWanManager Process\n"));
     init_capability();
@@ -382,6 +383,11 @@ int main(int argc, char* argv[])
     waitUntilSystemReady();
 
     WanMgrDmlWanWebConfigInit();
+
+    if (access(controllerStateFile, F_OK) == 0)
+    {
+        unlink(controllerStateFile);
+    }
     
     if ( bRunAsDaemon )
     {
