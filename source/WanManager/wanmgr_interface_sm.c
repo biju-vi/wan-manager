@@ -3685,6 +3685,16 @@ static eWanState_t wan_transition_standby(WanMgr_IfaceSM_Controller_t* pWanIface
     }
 
     DML_WAN_IFACE* pInterface = pWanIfaceCtrl->pIfaceData;
+    
+    if(pWanIfaceCtrl->ActivateInterface == TRUE)
+    {
+        if(pInterface)
+        {
+            CcspTraceInfo(("%s %d - Interface '%s' is marked as active through control flag - \n", __FUNCTION__, __LINE__, pInterface->Name));
+            pInterface->Selection.Status = WAN_IFACE_ACTIVE;
+        }
+    }
+
     DML_VIRTUAL_IFACE* p_VirtIf = WanMgr_getVirtualIfaceById(pInterface->VirtIfList, pWanIfaceCtrl->VirIfIdx);
 
     WanMgr_ProcessTelemetryMarker(p_VirtIf, WAN_INFO_WAN_STANDBY);
@@ -5255,5 +5265,7 @@ void WanMgr_IfaceSM_Init(WanMgr_IfaceSM_Controller_t* pWanIfaceSMCtrl, INT iface
         WanMgr_IfaceSM_IHC_Init(pWanIfaceSMCtrl);
 #endif
         pWanIfaceSMCtrl->pIfaceData = NULL;        
+        // External control flag to mark an interface to be "active" when in standby mode
+        pWanIfaceSMCtrl->ActivateInterface = TRUE;
     }
 }
