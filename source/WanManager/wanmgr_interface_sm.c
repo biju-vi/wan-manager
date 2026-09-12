@@ -2353,11 +2353,11 @@ static eWanState_t wan_transition_physical_interface_down(WanMgr_IfaceSM_Control
         wan_transition_ipv4_down(pWanIfaceCtrl);
     }
 
-    /* A delayed DHCP_LEASE_DEL can set Ipv6Status to DOWN, and a delayed
-    DHCPC_STOPPED can set Dhcp6cStatus to STOPPED when it is received from DHCPManager
-    But a new dhcpv6 client instance might have already been started by wanmanager before receiving these events. 
-    In between,if interface goes down (ONT connect/disconnect ) we need to stop the 
-    running dhcpv6 client as interface is going down and dhcpv6 client socket becomes invalid.*/
+    /* A delayed DHCP_LEASE_DEL can set Ipv6Status to DOWN, and a delayed DHCPC_STOPPED can set Dhcp6cStatus 
+    to STOPPED when it is received from external components. But a new DHCPV6 client instance might have already 
+    been started by wanmanager before receiving these events. In between,if,interface goes down 
+    (ONT connect/disconnect) an already running  DHCPv6 client should be stopped as interface is going down 
+    and DHCPV6 client socket becomes invalid.*/
 
     if(p_VirtIf->IP.Ipv6Status == WAN_IFACE_IPV6_STATE_UP)
     {
