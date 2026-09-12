@@ -1077,6 +1077,7 @@ int wan_updateDNS(WanMgr_IfaceSM_Controller_t* pWanIfaceCtrl, BOOL addIPv4, BOOL
  */
 static int checkIpv6AddressIsReadyToUse(DML_VIRTUAL_IFACE* p_VirtIf)
 {
+    char buffer[BUFLEN_256] = {0};
     FILE *fp_dad       = NULL;
     FILE *fp_route     = NULL;
     int dad_flag       = 0;
