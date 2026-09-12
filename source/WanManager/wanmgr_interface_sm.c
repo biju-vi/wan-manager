@@ -2353,11 +2353,11 @@ static eWanState_t wan_transition_physical_interface_down(WanMgr_IfaceSM_Control
         wan_transition_ipv4_down(pWanIfaceCtrl);
     }
 
-    // A delayed DHCP_LEASE_DEL can set Ipv6Status to DOWN, and a delayed
-    // DHCPC_STOPPED can set Dhcp6cStatus to STOPPED when it is received from DHCPManager
-    // But a new dhcpv6 client instance might have been started by wanmanager before receiving these events. 
-    // In between,if interface goes down (ONT connect/disconnect ) we need to stop the 
-    // running dhcpv6 client as interface is going down and dhcpv6 client socket becomes invalid. 
+    /* A delayed DHCP_LEASE_DEL can set Ipv6Status to DOWN, and a delayed
+    DHCPC_STOPPED can set Dhcp6cStatus to STOPPED when it is received from DHCPManager
+    But a new dhcpv6 client instance might have been started by wanmanager before receiving these events. 
+    In between,if interface goes down (ONT connect/disconnect ) we need to stop the 
+    running dhcpv6 client as interface is going down and dhcpv6 client socket becomes invalid.*/
 
     if(p_VirtIf->IP.Ipv6Status == WAN_IFACE_IPV6_STATE_UP)
     {
@@ -2376,6 +2376,7 @@ static eWanState_t wan_transition_physical_interface_down(WanMgr_IfaceSM_Control
     /* Stops DHCPv6 client */
     if(ipv6_teardown_status == FALSE)
     {
+        // v6 config is teared down if already configured, stop DHCPv6 client if running without RELEASE
         CcspTraceInfo(("%s %d: Stopping DHCP v6\n", __FUNCTION__, __LINE__));
         WanManager_StopDhcpv6Client(p_VirtIf, STOP_DHCP_WITHOUT_RELEASE);
     }
