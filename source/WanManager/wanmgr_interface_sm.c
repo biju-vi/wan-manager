@@ -2367,12 +2367,9 @@ static eWanState_t wan_transition_physical_interface_down(WanMgr_IfaceSM_Control
     }
 
     /* Stops DHCPv6 client */
-    if(p_VirtIf->IP.Dhcp6cStatus == DHCPC_STARTED)
-    {
-        // v6 config is teared down if already configured, stop DHCPv6 client if running without RELEASE
-        CcspTraceInfo(("%s %d: Stopping DHCP v6\n", __FUNCTION__, __LINE__));
-        WanManager_StopDhcpv6Client(p_VirtIf, STOP_DHCP_WITHOUT_RELEASE);
-    }
+    // v6 config is teared down if already configured, stop DHCPv6 client if running without RELEASE
+    CcspTraceInfo(("%s %d: Stopping DHCP v6\n", __FUNCTION__, __LINE__));
+    WanManager_StopDhcpv6Client(p_VirtIf, STOP_DHCP_WITHOUT_RELEASE);
 
     p_VirtIf->IP.SelectedModeTimerStatus = NOTSTARTED; // Reset Timer
     WanMgr_StopConnectivityCheck(pWanIfaceCtrl);
